@@ -1,17 +1,13 @@
-from django.forms import ValidationError
+# serializers.py
+
 from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
+from rest_framework.exceptions import ValidationError
+from .models import User, OTP
+from .utils import GoogleAuthenticator, register_social_user, send_sms
+from .mixins import PhoneNumberMixin
 from django.conf import settings
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.validators import UniqueTogetherValidator
-
-from .models import OTP, User
-from .utils import GoogleAuthenticator, register_social_user
 from django.contrib.auth import authenticate
-from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
-from .utils import phone_regex
-
-
+from rest_framework.exceptions import AuthenticationFailed
 
 class GoogleSignSerializer(serializers.Serializer):
     access_token = serializers.CharField(min_length=5)
@@ -20,58 +16,59 @@ class GoogleSignSerializer(serializers.Serializer):
         google_user_data = GoogleAuthenticator.validate(access_token)
         try:
             userid = google_user_data['sub']
-
         except Exception as e:
-            raise serializers.ValidationError('This token is expired')
+            raise ValidationError('This token is expired')
         
         if google_user_data['aud'] != settings.GOOGLE_CLIENT_ID:
-            raise AuthenticationFailed(detail="could not verify user")
+            raise AuthenticationFailed(detail="Could not verify user")
         
-        email    = google_user_data['email']
-        username = email.split('@')
+        email = google_user_data['email']
+        username = email.split('@')[0]
         provider = 'google'
         return register_social_user(provider, email, username)
 
 
-
-
-class GenerateOTPSerializer(serializers.Serializer):
+class GenerateOTPSerializer(PhoneNumberMixin, serializers.Serializer):
     """
-    This serializer for generating otp given phone number
+    Serializer for generating OTP given a phone number with country code.
     """
+    phone_number = serializers.CharField(max_length=20)
 
 
-    phone_number = serializers.CharField(max_length =20)
-
-    def validate_phone_number(self, value):
-        try:
-            parsed_number = phonenumbers_parse(value, None)
-            if not phonenumbers_is_valid(parsed_number):
-                raise serializers.ValidationError("Invalid phone number format")
-        except Exception as e:
-            raise serializers.ValidationError("Invalid phone number format")
-        
-        return phonenumbers_parse(value, None).national_number
-
-class UserProfileSerializer(serializers.ModelSerializer):
-
-    username = serializers.CharField(required=True)
-    image = serializers.ImageField(required=False, allow_null=True)
-
+class UserProfileEditSerializer(serializers.ModelSerializer):
+    """
+    Serializer for editing user profile.
+    """
 
     class Meta:
         model = User
-        fields = ('username', 'email','phone_number','image')
+        fields = ('username', 'email', 'phone_number', 'image')
 
     def validate_username(self, value):
         user = self.context['request'].user
         if User.objects.exclude(pk=user.pk).filter(username=value).exists():
-            raise serializers.ValidationError({"username": "This username is already in use."})
+            raise ValidationError({"username": "This username is already in use."})
         return value
 
     def update(self, instance, validated_data):
         instance.username = validated_data.get('username', instance.username)
-        if 'profile_photo' in validated_data:
-            instance.profile_photo = validated_data['profile_photo']
+        if 'image' in validated_data:
+            instance.image = validated_data['image']
         instance.save()
         return instance
+
+
+class ChangePhoneNumberSerializer(PhoneNumberMixin, serializers.ModelSerializer):
+    """
+    Serializer for changing phone number.
+    """
+
+    class Meta:
+        model = User
+        fields = ['phone_number']
+
+    def validate_phone_number(self, value):
+    
+        if User.objects.filter(phone_number=value).exists():
+            raise ValidationError("This phone number is already in use.")
+        return value

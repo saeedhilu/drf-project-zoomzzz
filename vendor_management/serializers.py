@@ -1,32 +1,26 @@
 import Levenshtein
-from rest_framework import serializers
-from accounts.models import User
+from datetime import timedelta
+from smtplib import SMTPException
 from django.core.validators import RegexValidator
 from django.core.mail import send_mail
 from django.utils import timezone
-from datetime import timedelta
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework import status
-from django.views.generic import View
-from smtplib import SMTPException
-from rest_framework import serializers
-from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
+from rest_framework.views import APIView
 from django.contrib.auth.hashers import check_password
-from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
+from django.views.generic import View
+from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
+from accounts.models import User
+from accounts.utils import is_password_similar,validate_unique_email, validate_phone_number
 from django.core.exceptions import ValidationError
-from rest_framework import serializers
-from Levenshtein import distance
+from django.contrib.auth.password_validation import validate_password
 
 email_validator = RegexValidator(
     regex=r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$',
     message='Enter a valid email address'
 )
 
-phone_regex = RegexValidator(
-    regex=r'^\d{10}$',
-    message='Phone number must be entered in the format: 1234567890.'
-)
 
 class GenerateEmailSerializer(serializers.Serializer):
     """
@@ -34,20 +28,10 @@ class GenerateEmailSerializer(serializers.Serializer):
     """ 
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
-    email = serializers.EmailField(validators=[email_validator])
-    phone_number = serializers.CharField(max_length=15)
+    email = serializers.EmailField(validators=[email_validator, validate_unique_email])
+    phone_number = serializers.CharField(max_length=15, validators=[ validate_phone_number])
     password = serializers.CharField(write_only=True, style={'input_type': 'password'})
     confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
-
-    def validate_email(self, value):
-        """
-        Check if the email is already used by another user.
-        """
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email is already Exist")
-        return value
-
-    
 
     def validate(self, data):
         """
@@ -60,18 +44,6 @@ class GenerateEmailSerializer(serializers.Serializer):
             raise serializers.ValidationError("Passwords do not match")
 
         return data
-    def validate_phone_number(self, value):
-        try:
-            parsed_number = phonenumbers_parse(value, None)
-            if User.objects.filter(phone_number=value).exists():
-                raise serializers.ValidationError("Phone Number is already Exist ")
-
-            if not phonenumbers_is_valid(parsed_number):
-                raise serializers.ValidationError("Invalid phone number format")
-        except Exception as e:
-            raise serializers.ValidationError(f"{e}")
-        
-        return value
 
     def create(self, validated_data):
         """
@@ -91,9 +63,6 @@ class GenerateEmailSerializer(serializers.Serializer):
         return user
 
 
-
-
-
 class VendorLoginSerializer(serializers.Serializer):
     """
     Serializer for vendor login.
@@ -108,12 +77,6 @@ class VendorLoginSerializer(serializers.Serializer):
     def validate_password(self, value):
         # Custom validation for password, if needed
         return value
-    
-
-
-
-
-
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
@@ -123,12 +86,11 @@ class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 
-
 class ForgottPasswordChangeSerializer(serializers.Serializer):
     """
     Serializer for changing user password.
     """
-    
+
     new_password = serializers.CharField(max_length=128, write_only=True)
     confirm_password = serializers.CharField(max_length=128, write_only=True)
 
@@ -136,12 +98,9 @@ class ForgottPasswordChangeSerializer(serializers.Serializer):
         """
         Validate old_password, new_password, and confirm_password fields.
         """
-        
+
         new_password = data.get('new_password')
         confirm_password = data.get('confirm_password')
-
-        # Check if the new password is too similar to the old password
-        
 
         # Check if new password and confirm password match
         if new_password != confirm_password:
@@ -156,10 +115,6 @@ class ForgottPasswordChangeSerializer(serializers.Serializer):
         return data
 
 
-
-
-
-from .utils import is_password_similar
 class ChangePasswordSerializer(serializers.Serializer):
     """
     Serializer for changing user password.
@@ -191,21 +146,16 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError(str(e))
 
         return data
-    
-
 
 
 class VendorProfileSerializer(serializers.ModelSerializer):
-
-    first_name = serializers.CharField(max_length=40,required=False)
-    last_name = serializers.CharField(max_length=40,required=False)
+    first_name = serializers.CharField(max_length=40, required=False)
+    last_name = serializers.CharField(max_length=40, required=False)
     image = serializers.ImageField(required=False, allow_null=True)
-    
-
 
     class Meta:
         model = User
-        fields = ( 'email','phone_number','image','first_name','last_name')
+        fields = ('email', 'phone_number', 'image', 'first_name', 'last_name')
 
     def validate_username(self, value):
         user = self.context['request'].user
@@ -214,26 +164,18 @@ class VendorProfileSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-        instance.username    = validated_data.get('username', instance.username)
-        instance.first_name  = validated_data.get('first_name', instance.first_name)
-        instance.last_name   = validated_data.get('last_name', instance.last_name)
+        instance.username = validated_data.get('username', instance.username)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
         if 'profile_photo' in validated_data:
             instance.profile_photo = validated_data['profile_photo']
         instance.save()
         return instance
 
 
-
-
-
 class ChangeEmailSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(max_length=500)
 
     class Meta:
-        model = User  # Replace YourModelName with the actual name of your model
-        fields = ['email']  # Specify the fields you want to include in the serializer
-
-# class VerifyEmailSerializer(serializers.ModelSerializer):
-#     otp = serializers.IntegerField(min_value=0, max_value=999999)
-
-    
+        model = User
+        fields = ['email']

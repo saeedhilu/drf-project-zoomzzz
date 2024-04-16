@@ -8,11 +8,18 @@ from django.core.mail import send_mail
 from requests.exceptions import RequestException
 import requests
 from django.core.validators import RegexValidator
-from .models import User
+from .models import User,OTP
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from rest_framework import status
+from datetime import timedelta
+from django.utils import timezone
+from Levenshtein import distance
+from django.http import HttpResponse
+from django.core.validators import RegexValidator
+from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
+from rest_framework import serializers
 
 
 
@@ -83,7 +90,7 @@ def forgot_password_link(user, email):
         [email],
         fail_silently=False,
     )
-    return requests.Response({'success': 'Password reset email sent'}, status=status.HTTP_200_OK)
+    return HttpResponse({'success': 'Password reset email sent'}, status=status.HTTP_200_OK)
 
 
 def send_sms(message, phone_number):
@@ -137,3 +144,129 @@ def phone_regex(value):
     return phone_regex
 
 
+def create_otp(email, password=None):
+    """
+    Create or update OTP for the given email and password.
+    """
+    otp = generate_otp_code()
+    otp_expiry = timezone.now() + timedelta(seconds=40)
+    
+    defaults = {'otp_code': otp, 'otp_expiry': otp_expiry}
+    if password:
+        defaults['password'] = password
+    
+    otp_instance, created = OTP.objects.update_or_create(
+        email=email,
+        defaults=defaults
+    )
+    return otp, otp_instance, created
+
+
+
+
+
+def is_password_similar(old_password, new_password):
+    """
+    Check if the new password is too similar to the old password.
+    """
+    lev_distance = distance(old_password, new_password)
+    max_length = max(len(old_password), len(new_password))
+    similarity_score = 1 - (lev_distance / max_length)
+    return similarity_score > 0.8
+
+
+def generate_and_send_otp(phone_number):
+    """
+    Generate OTP and send it via SMS.
+    """
+    otp_instance, created = OTP.objects.get_or_create(phone_number=phone_number)
+
+    if not created and otp_instance.otp_expiry >= timezone.now():
+        return None, "A valid OTP already exists for this phone number."
+
+    otp_instance.otp_code = generate_otp_code()
+    otp_instance.otp_expiry = timezone.now() + timedelta(minutes=5)  # Set expiry time, adjust as needed
+    otp_instance.save()
+
+    message = f'Your OTP IS : {otp_instance.otp_code}'
+    sms_sent = send_sms(message, phone_number)
+
+    if sms_sent:
+        return otp_instance, "OTP generated and sent successfully"
+    else:
+        return None, "Failed to send OTP"
+    
+
+
+
+def resend_otp(phone_number):
+    """
+    Resend OTP to the provided phone number.
+    Returns the OTP instance and a message indicating success or failure.
+    """
+    try:
+        otp_instance = OTP.objects.get(phone_number=phone_number)
+
+        if otp_instance.otp_expiry >= timezone.now():
+            return None, 'OTP resend is not allowed until the previous OTP expires.'
+
+        otp_instance.otp_code = generate_otp_code()
+        otp_instance.otp_expiry = timezone.now() + timedelta(seconds=30)
+        otp_instance.save()
+
+        message = f'Your OTP is: {otp_instance.otp_code}'
+        sms_sent = send_sms(message, phone_number)
+
+        if sms_sent:
+            return otp_instance, 'OTP resent successfully'
+        else:
+            return None, 'Failed to resend OTP'
+    except OTP.DoesNotExist:
+        return None, 'No OTP exists'
+    except Exception as e:
+        return None, f'Failed to resend OTP. Exception: {str(e)}'
+    
+
+
+def verify_otp(phone_number, otp_entered):
+    """
+    Verify the OTP entered by the user.
+    Returns a tuple containing a boolean indicating whether the OTP is valid and a message.
+    """
+    try:
+        otp_instance = OTP.objects.get(phone_number=phone_number)
+
+        if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
+            otp_instance.delete()
+            return True, "OTP verification successful"
+        else:
+            return False, "Invalid OTP or OTP expired"
+    except OTP.DoesNotExist:
+        return False, "OTP entry not found"
+    except Exception as e:
+        return False, f"Failed to verify OTP. Exception: {str(e)}"
+
+
+
+
+
+def validate_phone_number(value):
+    """
+    Validate phone number format and uniqueness.
+    """
+    try:
+        parsed_number = phonenumbers_parse(value, None)
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Phone number is already in use")
+
+        if not phonenumbers_is_valid(parsed_number):
+            raise serializers.ValidationError("Invalid phone number format")
+    except Exception as e:
+        raise serializers.ValidationError(str(e))
+def validate_unique_email(value):
+    """
+    Validate email uniqueness.
+    """
+    if User.objects.filter(email=value).exists():
+        raise serializers.ValidationError("Email is already in use.")
+    return value
