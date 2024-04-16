@@ -4,10 +4,18 @@ from google.oauth2 import id_token
 from django.contrib.auth import authenticate
 from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
-from accounts.models import User
 from django.core.mail import send_mail
 from requests.exceptions import RequestException
 import requests
+from django.core.validators import RegexValidator
+from .models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from rest_framework import status
+
+
+
 
 def generate_otp_code():
     """
@@ -57,20 +65,31 @@ def register_social_user(email, username):
         login_social_user(email, settings.CUSTOM_PASSWORD_FOR_AUTH)
 
 
-def send_otp_email(email, first_name, otp):
+def send_otp_email(email,otp , first_name=None):
     subject = "Your OTP for Vendor Sign Up"
     message = f"Hi {first_name},\n\nYour OTP is: {otp}\n\nPlease use this OTP to complete your sign-up process.\n\nThank you."  
     sender = settings.EMAIL_HOST_USER  # Sender's email address
     recipient_list = [email]
     send_mail(subject, message, sender, recipient_list)
 
-
+def forgot_password_link(user, email):
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    reset_url = f"http://127.0.0.1:8000/vendor/forgot_password_change/{uid}/{token}/"  # Change this to your actual domain
+    send_mail(
+        'Password Reset Request',
+        f'Please click the following link to reset your password: {reset_url}',
+        'from@example.com',  # Change this to your email address
+        [email],
+        fail_silently=False,
+    )
+    return requests.Response({'success': 'Password reset email sent'}, status=status.HTTP_200_OK)
 
 
 def send_sms(message, phone_number):
     try:
         message = f'Hello {message}, This is a test message from spring edge'
-        mobileno = f'91{phone_number}'
+        mobileno = f'{phone_number}'
         sender = 'SEDEMO'
         apikey = '621492a44a89m36c2209zs4l7e74672cj'
 
@@ -110,35 +129,11 @@ def generate_otp_code(length=6):
 
 
 
+def phone_regex(value):
+    phone_regex = RegexValidator(
+    regex=r'^\d{15}$',
+    message='Phone number must be 10 digits only',
+    )
+    return phone_regex
 
 
-
-
-
-
-    # client = vonage.Client(key="73bb1e67", secret="VBE4FosOO0vnRj0Q")
-    # sms = vonage.Sms(client)
-    # Check for HTTP codes other than 200
-    # if response.status_code != 200:
-    #     print('Status:', response, 'Problem with the request.')
-    # exit()
-
-    
-    # try:
-    #     responseData = sms.send_message(
-    #         {
-    #             "from": "Vonage APIs",
-    #             "to": phone_number,
-    #             "text": message,
-    #         }
-    #     )
-
-    #     if responseData["messages"][0]["status"] == "0":
-    #         print("Message sent successfully")
-    #         return True
-    #     else:
-    #         print(f"Failed to send message. Vonage response: {responseData}")
-    #         return False
-    # except Exception as e:
-    #     print(f"An error occurred while sending message: {e}")
-    #     return False

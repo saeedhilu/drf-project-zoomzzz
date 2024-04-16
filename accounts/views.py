@@ -4,10 +4,19 @@ from rest_framework.views import APIView
 from datetime import timedelta
 from django.utils import timezone
 from .models import OTP, User
-from .serializers import GenerateOTPSerializer, GoogleSignSerializer
+from .serializers import (
+    GenerateOTPSerializer,
+    GoogleSignSerializer,
+    UserProfileSerializer,
+    
+    )
 from rest_framework_simplejwt.tokens import RefreshToken
-from .utils import send_otp_email, send_sms, generate_otp_code
-
+from rest_framework.permissions import IsAuthenticated
+from .utils import (
+    send_otp_email,
+    send_sms,
+    generate_otp_code
+    )   
 
 class GoogleSignInView(APIView):
     """
@@ -22,7 +31,8 @@ class GoogleSignInView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         access_token = serializer.validated_data.get('access_token')
-        return Response({'message': 'Email sign-in successful'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Email sign-in successful'},
+                        status=status.HTTP_200_OK)
 
 
 class GenerateOTPView(APIView):
@@ -41,7 +51,7 @@ class GenerateOTPView(APIView):
 
         try:
             existing_phone_number = request.session.get('phone_number')
-            if existing_phone_number and existing_phone_number != phone_number:
+            if   existing_phone_number != phone_number:
                 request.session['phone_number'] = phone_number
 
             otp_instance, created = OTP.objects.get_or_create(phone_number=phone_number)
@@ -58,9 +68,11 @@ class GenerateOTPView(APIView):
             sms_sent = send_sms(message, phone_number)
 
             if sms_sent:
-                return Response({'message': 'OTP generated and sent successfully'}, status=status.HTTP_200_OK)
+                return Response({'message': 'OTP generated and sent successfully'},
+                                status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({'error': 'Failed to send OTP'}, 
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return Response({'error': f'Failed to generate/send OTP. Exception: {str(e)}'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -92,7 +104,7 @@ class VerifyOTPView(APIView):
                     "refresh_token_expiry": refresh_token_exp.isoformat(),
                     "user": {
                         "id": user.id,
-                        "phone_number": user.phone_number,
+                        "phone_number": phone_number,
                     },
                     "message": "User Signup successfully",
                 }, status=status.HTTP_200_OK)
@@ -141,3 +153,32 @@ class ResendOTPView(APIView):
         except Exception as e:
             return Response({'error': f'Failed to resend OTP. Exception: {str(e)}'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserProfileAPIView(APIView):
+    """
+    View for retrieving and updating user profile information.
+    """
+    permission_classes = (IsAuthenticated,)
+    def get(self, request):
+        """
+        Retrieve the profile information of the authenticated user.
+        """
+    
+        serializer = UserProfileSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
+        
+            # return Response({'error': 'Authentication failed'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def put(self, request):
+        """
+        Update the profile information of the authenticated user.
+        """
+        if request.user.is_authenticated:
+            serializer = UserProfileSerializer(request.user, data=request.data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'error': 'Authentication failed'}, status=status.HTTP_401_UNAUTHORIZED)

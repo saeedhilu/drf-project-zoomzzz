@@ -10,7 +10,7 @@ from rest_framework import status
 from django.views.generic import View
 from smtplib import SMTPException
 from rest_framework import serializers
-
+from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
 from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
@@ -31,11 +31,11 @@ phone_regex = RegexValidator(
 class GenerateEmailSerializer(serializers.Serializer):
     """
     Serializer for generating email OTP and user registration.
-    """
+    """ 
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
     email = serializers.EmailField(validators=[email_validator])
-    phone_number = serializers.CharField(max_length=10, validators=[phone_regex])
+    phone_number = serializers.CharField(max_length=15)
     password = serializers.CharField(write_only=True, style={'input_type': 'password'})
     confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
@@ -60,6 +60,18 @@ class GenerateEmailSerializer(serializers.Serializer):
             raise serializers.ValidationError("Passwords do not match")
 
         return data
+    def validate_phone_number(self, value):
+        try:
+            parsed_number = phonenumbers_parse(value, None)
+            if User.objects.filter(phone_number=value).exists():
+                raise serializers.ValidationError("Phone Number is already Exist ")
+
+            if not phonenumbers_is_valid(parsed_number):
+                raise serializers.ValidationError("Invalid phone number format")
+        except Exception as e:
+            raise serializers.ValidationError(f"{e}")
+        
+        return value
 
     def create(self, validated_data):
         """
@@ -77,7 +89,6 @@ class GenerateEmailSerializer(serializers.Serializer):
                                         first_name=first_name, last_name=last_name)
 
         return user
-# from django.contrib.auth.password_validation import validate_password
 
 
 
@@ -101,14 +112,55 @@ class VendorLoginSerializer(serializers.Serializer):
 
 
 
-# class EmailSerializer(serializers.Serializer):
-#     email = serializers.EmailField()
+
+
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    """
+    Serializer for requesting password reset.
+    """
+    email = serializers.EmailField()
+
+
+
+class ForgottPasswordChangeSerializer(serializers.Serializer):
+    """
+    Serializer for changing user password.
+    """
+    
+    new_password = serializers.CharField(max_length=128, write_only=True)
+    confirm_password = serializers.CharField(max_length=128, write_only=True)
+
+    def validate(self, data):
+        """
+        Validate old_password, new_password, and confirm_password fields.
+        """
+        
+        new_password = data.get('new_password')
+        confirm_password = data.get('confirm_password')
+
+        # Check if the new password is too similar to the old password
+        
+
+        # Check if new password and confirm password match
+        if new_password != confirm_password:
+            raise serializers.ValidationError("New password and confirm password do not match")
+
+        # Run Django's built-in password validation checks on the new password
+        try:
+            validate_password(new_password)
+        except ValidationError as e:
+            raise serializers.ValidationError(str(e))
+
+        return data
 
 
 
 
 
-class PasswordChangeSerializer(serializers.Serializer):
+from .utils import is_password_similar
+class ChangePasswordSerializer(serializers.Serializer):
     """
     Serializer for changing user password.
     """
@@ -125,7 +177,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         confirm_password = data.get('confirm_password')
 
         # Check if the new password is too similar to the old password
-        if self.is_password_similar(old_password, new_password):
+        if is_password_similar(old_password, new_password):
             raise serializers.ValidationError("New password is too similar to the old password")
 
         # Check if new password and confirm password match
@@ -139,24 +191,49 @@ class PasswordChangeSerializer(serializers.Serializer):
             raise serializers.ValidationError(str(e))
 
         return data
+    
 
-    def is_password_similar(self, old_password, new_password):
-        """
-        Check if the new password is too similar to the old password.
-        """
-        # Calculate Levenshtein distance between old and new passwords
-        lev_distance = distance(old_password, new_password)
-        
-        # Calculate similarity score as 1 - (distance / max_length)
-        max_length = max(len(old_password), len(new_password))
-        similarity_score = 1 - (lev_distance / max_length)
-        
-        # Adjust threshold as needed
-        return similarity_score > 0.8
 
-class ForgotPasswordSerializer(serializers.Serializer):
-    """
-    Serializer for requesting password reset.
-    """
-    email = serializers.EmailField()
 
+class VendorProfileSerializer(serializers.ModelSerializer):
+
+    first_name = serializers.CharField(max_length=40,required=False)
+    last_name = serializers.CharField(max_length=40,required=False)
+    image = serializers.ImageField(required=False, allow_null=True)
+    
+
+
+    class Meta:
+        model = User
+        fields = ( 'email','phone_number','image','first_name','last_name')
+
+    def validate_username(self, value):
+        user = self.context['request'].user
+        if User.objects.exclude(pk=user.pk).filter(username=value).exists():
+            raise serializers.ValidationError({"username": "This username is already in use."})
+        return value
+
+    def update(self, instance, validated_data):
+        instance.username    = validated_data.get('username', instance.username)
+        instance.first_name  = validated_data.get('first_name', instance.first_name)
+        instance.last_name   = validated_data.get('last_name', instance.last_name)
+        if 'profile_photo' in validated_data:
+            instance.profile_photo = validated_data['profile_photo']
+        instance.save()
+        return instance
+
+
+
+
+
+class ChangeEmailSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(max_length=500)
+
+    class Meta:
+        model = User  # Replace YourModelName with the actual name of your model
+        fields = ['email']  # Specify the fields you want to include in the serializer
+
+# class VerifyEmailSerializer(serializers.ModelSerializer):
+#     otp = serializers.IntegerField(min_value=0, max_value=999999)
+
+    
