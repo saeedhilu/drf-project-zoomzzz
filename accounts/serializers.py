@@ -58,7 +58,10 @@ class UserProfileEditSerializer(serializers.ModelSerializer):
         return instance
 
 
-class ChangePhoneNumberSerializer(PhoneNumberMixin, serializers.ModelSerializer):
+class ChangePhoneNumberSerializer(
+    PhoneNumberMixin, 
+    serializers.ModelSerializer
+    ):
     """
     Serializer for changing phone number.
     """

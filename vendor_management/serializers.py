@@ -15,6 +15,16 @@ from accounts.models import User
 from accounts.utils import is_password_similar,validate_unique_email, validate_phone_number
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
+"""
+importing constant messages from constant file
+"""
+from accounts.constants import(
+    PASSWORDS_DO_NOT_MATCH, 
+    NEW_PASSWORD_SIMILAR_TO_OLD, 
+    NEW_PASSWORD_CONFIRMATION_REQUIRED, 
+    INVALID_EMAIL_OR_PASSWORD, 
+    EMAIL_ALREADY_EXISTS
+)
 
 email_validator = RegexValidator(
     regex=r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$',
@@ -41,7 +51,7 @@ class GenerateEmailSerializer(serializers.Serializer):
         confirm_password = data.pop('confirm_password', None)
 
         if password != confirm_password:
-            raise serializers.ValidationError("Passwords do not match")
+            raise serializers.ValidationError(PASSWORDS_DO_NOT_MATCH)
 
         return data
 
@@ -57,11 +67,16 @@ class GenerateEmailSerializer(serializers.Serializer):
         last_name = validated_data['last_name']
 
         # Create the user instance
-        user = User.objects.create_user(username=username, email=email, password=password,
-                                        first_name=first_name, last_name=last_name)
+        user = User.objects.create_user(
+            username=username, 
+            email=email,
+            password=password,
+            first_name=first_name, 
+            last_name=last_name
+            
+            )
 
         return user
-
 
 class VendorLoginSerializer(serializers.Serializer):
     """
@@ -91,8 +106,14 @@ class ForgottPasswordChangeSerializer(serializers.Serializer):
     Serializer for changing user password.
     """
 
-    new_password = serializers.CharField(max_length=128, write_only=True)
-    confirm_password = serializers.CharField(max_length=128, write_only=True)
+    new_password = serializers.CharField(
+        max_length=128, 
+        write_only=True
+        )
+    confirm_password = serializers.CharField(
+        max_length=128, 
+        write_only=True
+        )
 
     def validate(self, data):
         """
@@ -104,7 +125,9 @@ class ForgottPasswordChangeSerializer(serializers.Serializer):
 
         # Check if new password and confirm password match
         if new_password != confirm_password:
-            raise serializers.ValidationError("New password and confirm password do not match")
+            raise serializers.ValidationError(
+                NEW_PASSWORD_CONFIRMATION_REQUIRED
+                )
 
         # Run Django's built-in password validation checks on the new password
         try:
@@ -119,9 +142,18 @@ class ChangePasswordSerializer(serializers.Serializer):
     """
     Serializer for changing user password.
     """
-    old_password = serializers.CharField(max_length=128, write_only=True)
-    new_password = serializers.CharField(max_length=128, write_only=True)
-    confirm_password = serializers.CharField(max_length=128, write_only=True)
+    old_password = serializers.CharField(
+        max_length=128, 
+        write_only=True
+        )
+    new_password = serializers.CharField(
+        max_length=128, 
+        write_only=True
+        )
+    confirm_password = serializers.CharField(
+        max_length=128, 
+        write_only=True
+        )
 
     def validate(self, data):
         """
@@ -133,13 +165,17 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         # Check if the new password is too similar to the old password
         if is_password_similar(old_password, new_password):
-            raise serializers.ValidationError("New password is too similar to the old password")
+            raise serializers.ValidationError(
+                NEW_PASSWORD_SIMILAR_TO_OLD
+                )
 
         # Check if new password and confirm password match
         if new_password != confirm_password:
-            raise serializers.ValidationError("New password and confirm password do not match")
+            raise serializers.ValidationError(
+                NEW_PASSWORD_CONFIRMATION_REQUIRED
+                )
 
-        # Run Django's built-in password validation checks on the new password
+
         try:
             validate_password(new_password)
         except ValidationError as e:
@@ -149,24 +185,50 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class VendorProfileSerializer(serializers.ModelSerializer):
-    first_name = serializers.CharField(max_length=40, required=False)
-    last_name = serializers.CharField(max_length=40, required=False)
-    image = serializers.ImageField(required=False, allow_null=True)
+    first_name = serializers.CharField(
+        max_length=40, 
+        required=False
+        )
+    last_name  = serializers.CharField(
+        max_length=40, 
+        required=False
+        )
+    image      = serializers.ImageField(
+        required=False, 
+        allow_null=True
+        )
 
     class Meta:
         model = User
-        fields = ('email', 'phone_number', 'image', 'first_name', 'last_name')
+        fields = (
+            'email', 
+            'phone_number',
+            'image', 
+            'first_name', 
+            'last_name'
+                    )
 
     def validate_username(self, value):
         user = self.context['request'].user
         if User.objects.exclude(pk=user.pk).filter(username=value).exists():
-            raise serializers.ValidationError({"username": "This username is already in use."})
+            raise serializers.ValidationError(
+                {"username": "This username is already in use."}
+                )
         return value
 
     def update(self, instance, validated_data):
-        instance.username = validated_data.get('username', instance.username)
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.username = validated_data.get(
+            'username', 
+            instance.username
+            )
+        instance.first_name = validated_data.get(
+            'first_name', 
+            instance.first_name
+            )
+        instance.last_name = validated_data.get(
+            'last_name', 
+            instance.last_name
+            )
         if 'profile_photo' in validated_data:
             instance.profile_photo = validated_data['profile_photo']
         instance.save()

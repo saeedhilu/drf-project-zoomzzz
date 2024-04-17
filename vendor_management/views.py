@@ -30,7 +30,7 @@ from .serializers import (
     VendorLoginSerializer,
     VendorProfileSerializer,
 )
-
+from accounts.constants import *
 
 class VendorSignupView(APIView):
     """
@@ -56,7 +56,7 @@ class VendorSignupView(APIView):
             try:
                 otp_instance = OTP.objects.get(email=email)
                 if otp_instance.otp_expiry >= timezone.now():
-                    return Response({'message': 'A valid OTP already exists for this email address.'},
+                    return Response({'message': OTP_ALREADY_EXISTS},
                                     status=status.HTTP_400_BAD_REQUEST)
             except OTP.DoesNotExist:
                 pass
@@ -72,14 +72,19 @@ class VendorSignupView(APIView):
                 request.session['first_name']   = first_name
                 request.session['last_name']    = last_name
 
-                return Response({'message': 'OTP generated and sent successfully'},
+                return Response({'message': GENERATE_OTP_MESSAGE},
                                 status=status.HTTP_200_OK)
 
             except Exception as e:
-                return Response({'error': str(e)},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                                )
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
 
 class VenodrVerifyView(APIView):
@@ -138,8 +143,10 @@ class VenodrVerifyView(APIView):
             return Response({'error': 'OTP entry not found'},
                             status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 
 class ResendEmailOTPView(APIView):
@@ -163,10 +170,13 @@ class ResendEmailOTPView(APIView):
                 return Response({'message': 'OTP resent successfully'},
                                 status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'OTP resend is not allowed until the previous OTP expires.'},
+                return Response(
+                    {'error': OTP_ALREADY_EXISTS},
                                 status=status.HTTP_400_BAD_REQUEST)
         except OTP.DoesNotExist:
-            return Response({'error': 'OTP entry not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'OTP entry not found'},
+                status=status.HTTP_404_NOT_FOUND)
 
 
 class VendorLoginView(APIView):
@@ -182,12 +192,16 @@ class VendorLoginView(APIView):
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                return Response({'error': 'User not found'},
-                                status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {'error': 'User not found'},
+                        status=status.HTTP_404_NOT_FOUND
+                        )
 
             if not user.check_password(password):
-                return Response({'error': 'Incorrect password'},
-                                status=status.HTTP_401_UNAUTHORIZED)
+                return Response(
+                    {'error': 'Incorrect password'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                                )
 
             refresh = RefreshToken.for_user(user)
 
@@ -225,12 +239,20 @@ class ForgotPasswordEmailView(APIView):
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                return Response({'error': 'User with this email does not exist'},
-                                status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {'error': EMAIL_NOT_EXIST},
+                        status=status.HTTP_404_NOT_FOUND
+                        )
 
             forgot_password_link(user, email)
-            return Response({'success': 'Password reset email sent'}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'success': 'Password reset email sent'},
+                status=status.HTTP_200_OK
+                )
+        return Response(
+            serializer.errors, 
+            status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class ForgottPasswordResetView(APIView):
@@ -244,23 +266,41 @@ class ForgottPasswordResetView(APIView):
         token  = request.data.get('token', token)
 
         if uidb64 and token:
-            return self.handle_password_reset(request, uidb64, token)
+            return self.handle_password_reset(
+                request, 
+                uidb64, 
+                token
+                )
         else:
-            return Response({'error': 'Invalid request'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Invalid request'},
+                    status=status.HTTP_400_BAD_REQUEST
+                    )
 
-    def handle_password_reset(self, request, uidb64, token):
+    def handle_password_reset(
+            self, 
+            request, 
+            uidb64, 
+            token
+            ):
         try:
             uid  = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return Response({'error': 'Invalid user or token'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        except (
+            TypeError, 
+            ValueError, 
+            OverflowError, 
+            User.DoesNotExist
+            ):
+            return Response(
+                {'error': 'Invalid user or token'},
+                    status=status.HTTP_400_BAD_REQUEST
+                    )
 
         if default_token_generator.check_token(user, token):
             token_expiry_time = datetime.now() + self.TOKEN_EXPIRATION_DURATION
 
-            if token_expiry_time < datetime.now():
+            if token_expiry_time < datetime.now():  
                 return Response({'error': 'Reset token has expired'},
                                 status=status.HTTP_400_BAD_REQUEST)
 
@@ -271,7 +311,7 @@ class ForgottPasswordResetView(APIView):
                 new_password = serializer.validated_data['new_password']
                 user.set_password(new_password)
                 user.save()
-                return Response({'success': 'Password changed successfully'},
+                return Response({'success': PASSWORD_SUCCESS},
                                 status=status.HTTP_200_OK)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -299,7 +339,8 @@ class ChangePasswordView(APIView):
 
             user.set_password(new_password)
             user.save()
-            return Response({'success': 'Password changed successfully'}, status=200)
+            return Response({'success': PASSWORD_SUCCESS}, 
+                            status=200)
         else:
             return Response(serializer.errors, status=400)
 
@@ -314,7 +355,8 @@ class VendorProfileAPIView(APIView):
         """
         Retrieve the profile information of the authenticated user.
         """
-        serializer = VendorProfileSerializer(request.user, context={'request': request})
+        serializer = VendorProfileSerializer(
+            request.user, context={'request': request})
         return Response(serializer.data)
 
     def put(self, request):
@@ -323,13 +365,15 @@ class VendorProfileAPIView(APIView):
         """
         if request.user.is_authenticated:
             serializer = VendorProfileSerializer(
-                request.user, data=request.data, context={'request': request}
+                request.user, data=request.data, 
+                context={'request': request}
                 )
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
             else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors, 
+                                status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'error': 'Authentication failed'},
                             status=status.HTTP_401_UNAUTHORIZED)
@@ -353,8 +397,10 @@ class ChangeEmailView(APIView):
             try:
                 otp_instance = OTP.objects.get(email=email)
                 if otp_instance.otp_expiry >= timezone.now():
-                    return Response({'message': 'A valid OTP already exists for this email address.'},
-                                        status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {'message': OTP_ALREADY_EXISTS},
+                            status=status.HTTP_400_BAD_REQUEST
+                            )
             except OTP.DoesNotExist:
                 pass
 
@@ -365,13 +411,19 @@ class ChangeEmailView(APIView):
 
                 request.session['email'] = email
 
-                return Response({'message': 'OTP generated and sent successfully'},
+                return Response({'message': GENERATE_OTP_MESSAGE},
                                 status=status.HTTP_200_OK)
 
             except Exception as e:
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response(
+                    {'error': str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
 
 class VerifyEmailChangeView(APIView):
@@ -386,7 +438,9 @@ class VerifyEmailChangeView(APIView):
         try:
             otp_instance = OTP.objects.get(email=email)
 
-            if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
+            if (otp_instance.otp_code == otp_entered and 
+                    otp_instance.otp_expiry >= timezone.now()):
+
                 otp_instance.delete()
 
                 user.email = email
@@ -403,3 +457,4 @@ class VerifyEmailChangeView(APIView):
         except Exception as e:
             return Response({'error': str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

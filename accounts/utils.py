@@ -20,7 +20,8 @@ from django.http import HttpResponse
 from django.core.validators import RegexValidator
 from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenumbers_is_valid
 from rest_framework import serializers
-
+from .constants import *
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
@@ -192,7 +193,7 @@ def generate_and_send_otp(phone_number):
     sms_sent = send_sms(message, phone_number)
 
     if sms_sent:
-        return otp_instance, "OTP generated and sent successfully"
+        return otp_instance, GENERATE_OTP_MESSAGE
     else:
         return None, "Failed to send OTP"
     
@@ -245,9 +246,6 @@ def verify_otp(phone_number, otp_entered):
         return False, "OTP entry not found"
     except Exception as e:
         return False, f"Failed to verify OTP. Exception: {str(e)}"
-
-
-
 
 
 def validate_phone_number(value):
