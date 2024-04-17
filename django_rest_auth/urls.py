@@ -22,5 +22,6 @@ urlpatterns = [
     path('accounts/',include('accounts.urls')),
     # path('rooms/',include('rooms.urls')),
     path('vendor/',include('vendor_management.urls')),
+    path('rooms/',include('rooms.urls')),
     path('',include('admin_portal.urls')),
 ]

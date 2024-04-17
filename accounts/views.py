@@ -197,3 +197,18 @@ class VerifyChangePhoneNumberView(APIView):
         else:
             return Response({'error': message}, 
                             status=status.HTTP_400_BAD_REQUEST)
+
+
+from rooms.models import Room
+from rooms.serializers import RoomSerializer
+
+
+class AllRoomsView(APIView):
+    """
+    API endpoint to retrieve all room data.
+    """
+
+    def get(self, request):
+        rooms = Room.objects.all()
+        serializer = RoomSerializer(rooms, many=True)
+        return Response(serializer.data)

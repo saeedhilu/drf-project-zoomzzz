@@ -6,7 +6,8 @@ from .views import (
     ResendOTPView,
     UserProfileEditAPIView,
     ChangePhoneNumberView,
-    VerifyChangePhoneNumberView
+    VerifyChangePhoneNumberView,
+    AllRoomsView
 )
 
 urlpatterns = [
@@ -17,6 +18,8 @@ urlpatterns = [
     path('user/update/', UserProfileEditAPIView.as_view(), name='update-user'),
     path('phone-number/update/', ChangePhoneNumberView.as_view(), name='update-user'),
     path('verify-otp/update/', VerifyChangePhoneNumberView.as_view(), name='update-user'),
+    path('all-rooms/', AllRoomsView.as_view(), name='all-rooms'),
+    
 #     # path('login/', LoginUserView.as_view(), name='login'),
 #     path('verify-email-otp/', VerifyEmailView.as_view(), name='verify_email_otp'),
 ]
