@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Room
-from .serializers import RoomSerializer,RoomUpdateSerializer
+from .serializers import RoomSerializer
 from rest_framework.exceptions import NotFound
 class RoomCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]  # Only authenticated users can access
@@ -18,7 +18,7 @@ class RoomCreateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class       RoomDetailAPIView(APIView):
+class RoomDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]  # Only authenticated users can access
 
     def get_object(self, pk):

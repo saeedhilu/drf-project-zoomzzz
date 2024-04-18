@@ -16,7 +16,7 @@ class Location(models.Model):
     city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='locations')
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 
