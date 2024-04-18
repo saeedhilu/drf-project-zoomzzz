@@ -3,32 +3,32 @@ from rest_framework import serializers
 from .models import Room, Category, RoomType, BedType, Amenity, Location, City
 
 
-"""
-<<<<< For Admin >>>>>
-"""
+# """
+# <<<<< For Admin >>>>>
+# """
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()  # Added for image URL
+# class CategorySerializer(serializers.ModelSerializer):
+#     image_url = serializers.SerializerMethodField()  # Added for image URL
 
-    class Meta:
-        model = Category
-        fields = ('id', 'name', 'image', 'image_url', 'created_by', 'created_at')
+#     class Meta:
+#         model = Category
+#         fields = ('id', 'name', 'image', 'image_url', 'created_by', 'created_at')
 
-    def get_image_url(self, obj):
-        if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
-        return None  # Return None if no image
+#     def get_image_url(self, obj):
+#         if obj.image and hasattr(obj.image, 'url'):
+#             return obj.image.url
+#         return None  # Return None if no image
 
-class RoomTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RoomType
-        fields = ('id', 'name')
+# class RoomTypeSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = RoomType
+#         fields = ('id', 'name')
 
-class BedTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BedType
-        fields = ('id', 'name')
+# class BedTypeSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = BedType
+#         fields = ('id', 'name')
 
 
 
@@ -53,11 +53,8 @@ class LocationSerializer(serializers.ModelSerializer):
         city, _ = City.objects.get_or_create(name=city_name, location=location)
         return location
 
-class AmenitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Amenity
-        fields = ('id', 'name', 'image')
-from rest_framework import serializers
+
+
 class RoomSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     room_type = serializers.PrimaryKeyRelatedField(queryset=RoomType.objects.all())

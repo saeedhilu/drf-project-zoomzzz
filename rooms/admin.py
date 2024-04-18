@@ -36,22 +36,26 @@ class AmenityAdmin(admin.ModelAdmin):
     list_display = [
         'id', 'name', 'image',  # Include all fields you want to display
     ]
+def get_amenities_list(self, obj):
+    return ', '.join([str(amenity) for amenity in obj.amenities.all()])
+
 
 class RoomAdmin(admin.ModelAdmin):
     list_display = [
-    'id', 'name','location', 'get_city_name', 'get_country_name',
-    'description', 'price_per_night', 'max_occupancy', 'availability',
-    'pet_allowed', 'room_type', 'bed_type', 'created_by', 'created_at',
-        ]
+        'id', 'name', 'location', 'get_city_name', 'get_country_name',
+        'description', 'price_per_night', 'max_occupancy', 'availability',
+        'pet_allowed', 'room_type', 'bed_type', 'created_by', 'created_at',
+        'get_amenities_list',  # Include the custom method here
+    ]
+
+    def get_amenities_list(self, obj):
+        return ', '.join([str(amenity) for amenity in obj.amenities.all()])
 
     def get_city_name(self, obj):
         return obj.location.city.name if obj.location else None
 
     def get_country_name(self, obj):
         return obj.location.country if obj.location else None
-    def get_amenities(self, obj):
-        return ', '.join([amenity.name for amenity in obj.amenities.all()])
-
 
 
 # Register models with custom admin panels
