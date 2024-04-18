@@ -268,3 +268,12 @@ def validate_unique_email(value):
     if User.objects.filter(email=value).exists():
         raise serializers.ValidationError("Email is already in use.")
     return value
+
+
+def validate_name(value):
+    """
+    Check Username validator
+    """
+    if not value:
+            raise serializers.ValidationError("Name cannot be empty.")
+    return value 

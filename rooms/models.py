@@ -31,27 +31,18 @@ class Category(models.Model):
 
 
 class RoomType(models.Model):
-    ROOM_TYPE_CHOICES = (
-        ('SINGLE', 'Single'),
-        ('DOUBLE', 'Double'),
-        ('FAMILY', 'Family'),
-    )
-    name = models.CharField(max_length=50, choices=ROOM_TYPE_CHOICES)
+    
+    name = models.CharField(max_length=50)
 
     def __str__(self):
-        return self.get_name_display()  # Use get_name_display() for human-readable representation
+        return self.name  # Use get_name_display() for human-readable representation
 
 
 class BedType(models.Model):
-    BED_TYPE_CHOICES = (
-        ('KING', 'King'),
-        ('QUEEN', 'Queen'),
-        ('TWIN', 'Twin'),
-    )
-    name = models.CharField(max_length=50, choices=BED_TYPE_CHOICES)
+    name = models.CharField(max_length=50)
 
     def __str__(self):
-        return self.get_name_display()  # Use get_name_display() for human-readable representation
+        return self.name  # Use get_name_display() for human-readable representation
 
 
 class Amenity(models.Model):

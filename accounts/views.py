@@ -234,6 +234,7 @@ class RoomDetailAPIView(APIView):
     def get(self, request, pk):
         try:
             room = Room.objects.get(pk=pk)  # Retrieve room by primary key
+            
         except Room.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = RoomSerializer(room)  # Serialize the retrieved room
