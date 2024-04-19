@@ -74,6 +74,7 @@ class AbstractCRUDView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         serializer = self.serializer_class(data=request.data)
+        print('hekl')
         if serializer.is_valid():
             serializer.save()
             return Response(
@@ -153,3 +154,27 @@ class AddBedTypeView(AbstractCRUDView):
     """
     model = BedType
     serializer_class = BedTypeSerializer
+
+
+class AddCityView(AbstractCRUDView):
+    """
+    This view is used to add cities.
+    """
+    model = City
+    serializer_class = CitySerializer
+
+
+class AddLocationView(AbstractCRUDView):
+    """
+    This view is used to add location.
+    """
+    model = Location
+    serializer_class = LocationSerializer
+class AddCountry(AbstractCRUDView):
+    """
+    This view is used to add country.
+    """
+    
+    model = Country
+    serializer_class = CountrySerializer
+

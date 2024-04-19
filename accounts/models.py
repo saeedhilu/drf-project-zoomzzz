@@ -28,7 +28,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff     = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     is_active    = models.BooleanField(default=True)
-    image        = models.ImageField(default='default.jpg', upload_to='user_profile_photo',null=True)
+    image        = models.ImageField(
+                        default='default.jpg', 
+                        upload_to='user_profile_photo',null=True
+                        )
     objects      = UserManager()
 
     USERNAME_FIELD = 'username'
@@ -74,10 +77,25 @@ class OTP(models.Model):
 
     @classmethod
     def create(cls, phone_number, otp_code, otp_expiry, password):
-        return cls.objects.create(phone_number=phone_number, otp_code=otp_code, otp_expiry=otp_expiry, password=password)
+        return cls.objects.create(
+            phone_number=phone_number, 
+            otp_code=otp_code, 
+            otp_expiry=otp_expiry,
+            password=password
+                    )
 
     def is_expired(self):
         return timezone.now() > self.otp_expiry
 
     
 # OTP.objects.filter(otp_expiry__gte=Now()-timespan(days=1))
+
+
+
+
+
+from rooms.models import Room
+class WishList(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)

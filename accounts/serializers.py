@@ -75,3 +75,15 @@ class ChangePhoneNumberSerializer(
         if User.objects.filter(phone_number=value).exists():
             raise ValidationError("This phone number is already in use.")
         return value
+
+
+
+from .models import WishList
+from rooms.serializers import RoomSerializer   
+
+class WishListSerializer(serializers.ModelSerializer):
+    room = RoomSerializer(read_only=True)  # Nested serialization
+
+    class Meta:
+        model = WishList
+        fields = '__all__'

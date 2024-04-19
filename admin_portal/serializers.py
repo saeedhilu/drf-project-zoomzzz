@@ -106,3 +106,34 @@ class AmenitySerializer(serializers.ModelSerializer):
                 )
         
         return value
+
+
+class CitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = City
+        fields = ('id', 'name')
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Country
+        fields = ('id', 'name') 
+class LocationSerializer(serializers.ModelSerializer):
+    # country = serializers.CharField(write_only=True)
+    city = serializers.PrimaryKeyRelatedField(queryset=City.objects.all())
+
+    class Meta:
+        model = Location
+        fields = ('id', 'name', 'country', 'city')
+
+    def validate_city(self, value):
+        # Check if the city exists
+        if not City.objects.filter(name=value).exists():
+            raise serializers.ValidationError("City does not exist.")
+        return value
+
+    def create(self, validated_data):
+        city_name = validated_data.pop('city')
+        country = validated_data.pop('country')
+        city, _ = City.objects.get_or_create(name=city_name)
+        location = Location.objects.create(city=city, country=country, **validated_data)
+        return location

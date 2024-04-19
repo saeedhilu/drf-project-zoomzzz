@@ -1,11 +1,13 @@
 from django.contrib import admin
-from .models import Location, City, Category, RoomType, BedType, Amenity, Room
+from .models import *
 
 
 class LocationAdmin(admin.ModelAdmin):
-    list_display = [
-        'id', 'name', 'country', 'city',  # Include all fields you want to display
-    ]
+    list_display = ('id','name', 'country', 'display_city')
+
+    def display_city(self, obj):
+        return obj.city.name if obj.city else None
+    # Display both name and formatted city in the list view
 
 
 class CityAdmin(admin.ModelAdmin):
@@ -56,8 +58,11 @@ class RoomAdmin(admin.ModelAdmin):
 
     def get_country_name(self, obj):
         return obj.location.country if obj.location else None
-
-
+class CountryAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'name',  # Include all fields you want to display 
+    ]
+admin.site.register(Country,CountryAdmin)
 # Register models with custom admin panels
 admin.site.register(Location, LocationAdmin)
 admin.site.register(City, CityAdmin)

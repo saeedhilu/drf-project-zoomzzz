@@ -4,19 +4,32 @@ from accounts.models import User
 
 from django.db import models
 
+
+
+
+
 class City(models.Model):
     name = models.CharField(max_length=50, unique=True)  # Ensure unique city names
 
     def __str__(self):
         return self.name
 
+from django.db import models
+
+class Country(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    
+    def __str__(self):
+        return self.name
+
 class Location(models.Model):
     name = models.CharField(max_length=100)
-    country = models.CharField(max_length=50, blank=True)  # Optional country field
-    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='locations')
-
+    city = models.ForeignKey(City, on_delete=models.CASCADE)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE)
+    
     def __str__(self):
-        return str(self.name)
+        return self.name
+
 
 
 
@@ -51,6 +64,10 @@ class Amenity(models.Model):
 
     def __str__(self):
         return self.name
+
+
+
+
 
 
 class Room(models.Model):

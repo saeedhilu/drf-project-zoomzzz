@@ -5,6 +5,9 @@ from .views import(
     AddAmenitiesView,
     AddRoomsTypeView,
     AddBedTypeView,
+    AddCityView,
+    AddLocationView,
+    AddCountry
 ) 
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -19,4 +22,10 @@ urlpatterns = [
     path('roomstype/<int:pk>/', AddRoomsTypeView.as_view(), name='update-delete-roomstype'),
     path('bedtype/', AddBedTypeView.as_view(), name='add-bedtype'),
     path('bedtype/<int:pk>/', AddBedTypeView.as_view(), name='update-delete-bedtype'),
+    path('cities/', AddCityView.as_view(), name='add-city'),
+    path('cities/<int:pk>/', AddCityView.as_view(), name='add-city'),
+    path('locations/', AddLocationView.as_view(), name='update-loation'),
+    path('locations/<int:pk>/', AddLocationView.as_view(), name='add-location'),
+    path('country/', AddCountry.as_view(), name='add-country'),
+    path('country/<int:pk>/', AddCountry.as_view(), name='update-update'),
 ]

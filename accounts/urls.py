@@ -8,7 +8,8 @@ from .views import (
     ChangePhoneNumberView,
     VerifyChangePhoneNumberView,
     AllRoomsView,
-    RoomDetailAPIView
+    RoomDetailAPIView,
+    WishListAPIView
 )
 
 urlpatterns = [
@@ -21,6 +22,8 @@ urlpatterns = [
     path('verify-otp/update/', VerifyChangePhoneNumberView.as_view(), name='update-user'),
     path('all-rooms/', AllRoomsView.as_view(), name='all-rooms'),
     path('room-detail/<int:pk>/', RoomDetailAPIView.as_view(), name='room-detail'),
+    path('wishlists/', WishListAPIView.as_view()),
+    path('wishlists/<int:pk>/', WishListAPIView.as_view()),
     
     
 #     # path('login/', LoginUserView.as_view(), name='login'),

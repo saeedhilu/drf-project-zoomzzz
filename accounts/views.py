@@ -240,3 +240,63 @@ class RoomDetailAPIView(APIView):
         serializer = RoomSerializer(room)  # Serialize the retrieved room
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+
+from .models import WishList
+from .serializers import WishListSerializer
+
+
+
+class WishListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Adds a room_id to the user's wish list.
+        """
+        room_id = request.data.get('room_id')
+        if not room_id:
+            return Response({'error': 'Missing room_id field'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Ensure room_id is converted to int
+            room_id = int(room_id)
+            # Check if the room exists
+            room = Room.objects.get(pk=room_id)
+        except (ValueError, Room.DoesNotExist):
+            return Response({'error': 'Invalid room_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        # Check if the wishlist already contains the room
+        existing_wishlist = WishList.objects.filter(user=user, room_id=room_id)
+        if existing_wishlist.exists():
+            return Response({'error': 'Room already in wishlist'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create a new wishlist item
+        wishlist = WishList(user=user, room_id=room_id)
+        wishlist.save()
+        return Response(WishListSerializer(wishlist).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, pk):
+        """
+        Deletes a wish list item.
+        """
+        try:
+            wishlist = WishList.objects.get(pk=pk)
+        except WishList.DoesNotExist:
+            return Response({'error': 'Wishlist not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if wishlist.user != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        wishlist.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get(self, request):
+        """
+        Retrieves the authenticated user's wish list items.
+        """
+        user = request.user
+        wishlists = WishList.objects.filter(user=user)
+        serializer = WishListSerializer(wishlists, many=True)
+        return Response(serializer.data)

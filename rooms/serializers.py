@@ -1,58 +1,17 @@
-
 from rest_framework import serializers
-from .models import Room, Category, RoomType, BedType, Amenity, Location, City
-
-
-# """
-# <<<<< For Admin >>>>>
-# """
-
-
-# class CategorySerializer(serializers.ModelSerializer):
-#     image_url = serializers.SerializerMethodField()  # Added for image URL
-
-#     class Meta:
-#         model = Category
-#         fields = ('id', 'name', 'image', 'image_url', 'created_by', 'created_at')
-
-#     def get_image_url(self, obj):
-#         if obj.image and hasattr(obj.image, 'url'):
-#             return obj.image.url
-#         return None  # Return None if no image
-
-# class RoomTypeSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = RoomType
-#         fields = ('id', 'name')
-
-# class BedTypeSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = BedType
-#         fields = ('id', 'name')
-
-
-
-"""
-<<<<<<<< For Vendor >>>>>>>>
-"""
+from .models import Room, Category, RoomType, BedType, Amenity, Location, City,Country
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = ('id', 'name')
 class LocationSerializer(serializers.ModelSerializer):
-    city_name = serializers.CharField(write_only=True)
+    city = serializers.PrimaryKeyRelatedField(queryset=City.objects.all())
+    country = serializers.PrimaryKeyRelatedField(queryset=Country.objects.all())
 
     class Meta:
         model = Location
-        fields = ('id', 'name', 'country', 'city_name')
-
-    def create(self, validated_data):
-        city_name = validated_data.pop('city_name')
-        location, _ = Location.objects.get_or_create(name=validated_data['name'], country=validated_data.get('country', ''))
-        city, _ = City.objects.get_or_create(name=city_name, location=location)
-        return location
-
+        fields = ('id', 'name', 'country', 'city')
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -60,11 +19,9 @@ class RoomSerializer(serializers.ModelSerializer):
     room_type = serializers.PrimaryKeyRelatedField(queryset=RoomType.objects.all())
     bed_type = serializers.PrimaryKeyRelatedField(queryset=BedType.objects.all())
     amenities = serializers.PrimaryKeyRelatedField(queryset=Amenity.objects.all(), many=True)
-    location = LocationSerializer()  # Set location as read-only
-
-    # Change field types for availability and pet_allowed
-    availability = serializers.BooleanField()
-    pet_allowed = serializers.BooleanField()
+    
+    # Use LocationSerializer for better handling of location, city, and country data
+    location = LocationSerializer()
 
     class Meta:
         model = Room
@@ -72,27 +29,41 @@ class RoomSerializer(serializers.ModelSerializer):
                     'max_occupancy', 'image', 'availability', 'pet_allowed', 'room_type', 'bed_type',
                     'amenities', 'created_by', 'created_at')
 
-    
-
     def create(self, validated_data):
         location_data = validated_data.pop('location')
-        city_name = location_data.pop('city_name')
-
-        # Check if a city with the provided name already exists
-        city, _ = City.objects.get_or_create(name=city_name)
-
-        # Create location with the existing or newly created city
-        location, _ = Location.objects.get_or_create(name=location_data['name'], country=location_data.get('country', ''), city=city)
-
+        
+        # Extract the city object from the location data
+        city_obj = location_data.get('city')
+        country_obj = location_data.get('country')
+        if country_obj is not None:
+            country_id = country_obj.id
+            location_data['country'] = country_id
+        
+        # Check if city_obj is not None
+        if city_obj is not None:
+            # Extract the primary key (ID) from the city object
+            city_id = city_obj.id
+            
+            # Replace the city object in location_data with its ID
+            location_data['city'] = city_id
+        
+        # Create the Location object with the modified location_data
+        location_serializer = LocationSerializer(data=location_data)
+        if location_serializer.is_valid():
+            location = location_serializer.save()
+        else:
+            raise serializers.ValidationError(location_serializer.errors)
+        
         validated_data['location'] = location
-
+        
         amenities_data = validated_data.pop('amenities', [])
         room = Room.objects.create(**validated_data)
-
+        
         # Set amenities using set() method
         room.amenities.set(amenities_data)
-
+        
         return room
+
     def update(self, instance, validated_data):
         location_data = validated_data.pop('location', None)
         if location_data:
@@ -102,6 +73,7 @@ class RoomSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError(location_serializer.errors)
 
+        # Update other fields
         instance.name = validated_data.get('name', instance.name)
         instance.category = validated_data.get('category', instance.category)
         instance.description = validated_data.get('description', instance.description)
@@ -112,31 +84,11 @@ class RoomSerializer(serializers.ModelSerializer):
         instance.pet_allowed = validated_data.get('pet_allowed', instance.pet_allowed)
         instance.room_type = validated_data.get('room_type', instance.room_type)
         instance.bed_type = validated_data.get('bed_type', instance.bed_type)
-
-        # Update many-to-many relationship for amenities
+        
+        # Update amenities
         amenities_data = validated_data.get('amenities')
-        if amenities_data is not None:
+        if amenities_data:
             instance.amenities.set(amenities_data)
 
         instance.save()
         return instance
-
-
-# class RoomUpdateSerializer(serializers.ModelSerializer):
-#     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-#     room_type = serializers.PrimaryKeyRelatedField(queryset=RoomType.objects.all())
-#     bed_type = serializers.PrimaryKeyRelatedField(queryset=BedType.objects.all())
-#     amenities = serializers.PrimaryKeyRelatedField(queryset=Amenity.objects.all(), many=True)
-#     location = LocationSerializer()
-
-#     # Change field types for availability and pet_allowed
-#     availability = serializers.BooleanField()
-#     pet_allowed = serializers.BooleanField()
-
-#     class Meta:
-#         model = Room
-#         fields = ('id', 'name', 'location', 'category', 'description', 'price_per_night',
-#                     'max_occupancy', 'image', 'availability', 'pet_allowed', 'room_type', 'bed_type',
-#                     'amenities', 'created_by', 'created_at')
-
-    
