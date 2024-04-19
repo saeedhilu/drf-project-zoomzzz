@@ -9,11 +9,13 @@ from .views import (
     VerifyChangePhoneNumberView,
     AllRoomsView,
     RoomDetailAPIView,
-    WishListAPIView
+    WishListAPIView,
+    RoomListView
 )
 
 urlpatterns = [
     path('google/auth', GoogleSignInView.as_view(), name='google-sign-in'),
+    path('room-search', RoomListView.as_view(), name='google-sign-in'),
     path('generate-ph-otp/', GenerateOTPView.as_view(), name='generate_phone_otp'),
     path('verify-ph-otp/', VerifyOTPView.as_view(), name='verify_phone_otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='otp-resending'),
@@ -24,6 +26,7 @@ urlpatterns = [
     path('room-detail/<int:pk>/', RoomDetailAPIView.as_view(), name='room-detail'),
     path('wishlists/', WishListAPIView.as_view()),
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
+
     
     
 #     # path('login/', LoginUserView.as_view(), name='login'),

@@ -14,6 +14,7 @@ PHONE_NUMBER_ALREADY_EXISTS_ERROR = "This phone number is already associated wit
 INVALID_GOOGLE_ACCESS_TOKEN_ERROR = "Invalid Google access token"
 TOKEN_EXPIRED_ERROR = "This token is expired"
 USER_VERIFICATION_FAILED_ERROR = "Could not verify user"
+OTP_STILL_VALID = 'OTP resend is not allowed until the previous OTP expires.'
 
 # Status Codes
 

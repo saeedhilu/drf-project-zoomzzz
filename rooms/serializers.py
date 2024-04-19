@@ -65,15 +65,18 @@ class RoomSerializer(serializers.ModelSerializer):
         return room
 
     def update(self, instance, validated_data):
+    # Check if `location` data is present in validated_data
         location_data = validated_data.pop('location', None)
+        
         if location_data:
-            location_serializer = LocationSerializer(instance.location, data=location_data)
+            # Allow partial updates for the nested location serializer
+            location_serializer = LocationSerializer(instance.location, data=location_data, partial=True)
             if location_serializer.is_valid():
                 location_serializer.save()
             else:
                 raise serializers.ValidationError(location_serializer.errors)
 
-        # Update other fields
+        # Update other fields in the instance
         instance.name = validated_data.get('name', instance.name)
         instance.category = validated_data.get('category', instance.category)
         instance.description = validated_data.get('description', instance.description)
@@ -85,10 +88,13 @@ class RoomSerializer(serializers.ModelSerializer):
         instance.room_type = validated_data.get('room_type', instance.room_type)
         instance.bed_type = validated_data.get('bed_type', instance.bed_type)
         
-        # Update amenities
+        # Update amenities if provided
         amenities_data = validated_data.get('amenities')
         if amenities_data:
             instance.amenities.set(amenities_data)
-
+            
+        # Save the updated instance
         instance.save()
+
+        # Return the updated instance
         return instance

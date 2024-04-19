@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from datetime import timedelta
 from django.utils import timezone
 from .models import OTP, User
+from .constants import OTP_STILL_VALID
 from .serializers import (
     GenerateOTPSerializer,
     GoogleSignSerializer,
@@ -40,6 +41,9 @@ class GoogleSignInView(APIView):
 
 
 class GenerateOTPView(APIView):
+    """
+    This view is used to generate and send OTP to the user.(Phone number signup)
+    """
     serializer_class = GenerateOTPSerializer
 
     def post(self, request):
@@ -52,11 +56,15 @@ class GenerateOTPView(APIView):
             if existing_phone_number and existing_phone_number != phone_number:
                 request.session['phone_number'] = phone_number
 
-            otp_instance, created = OTP.objects.get_or_create(phone_number=phone_number)
+            otp_instance, created = OTP.objects.get_or_create(
+                            phone_number=phone_number
+                            )
 
             if not created and otp_instance.otp_expiry >= timezone.now():
-                return Response({'error': 'OTP resend is not allowed until the previous OTP expires.'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': OTP_STILL_VALID},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             otp_instance.otp_code = generate_otp_code()
             otp_instance.otp_expiry = timezone.now() + timezone.timedelta(minutes=5)  # Set expiry time, adjust as needed
@@ -66,15 +74,26 @@ class GenerateOTPView(APIView):
             sms_sent = send_sms(message, phone_number)
 
             if sms_sent:
-                return Response({'message': 'OTP generated and sent successfully'}, status=status.HTTP_200_OK)
+                return Response(
+                    {'message': 'OTP generated and sent successfully'}, 
+                    status=status.HTTP_200_OK
+                    )
             else:
-                return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response(
+                    {'error': 'Failed to send OTP'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
         except Exception as e:
-            return Response({'error': f'Failed to generate/send OTP. Exception: {str(e)}'},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': f'Failed to generate/send OTP. Exception: {str(e)}'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                            )
 
 
 class VerifyOTPView(APIView):
+    """
+    This endpoint is used to verify the OTP sent to the user.(phone number otp)
+    """
     def post(self, request):
         phone_number = request.session.get('phone_number')
         otp_entered = request.data.get('otp')
@@ -100,11 +119,19 @@ class VerifyOTPView(APIView):
                     "message": "User Signup successfully",
                 }, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Invalid OTP or OTP expired'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': 'Invalid OTP or OTP expired'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                    )
         except OTP.DoesNotExist:
-            return Response({'error': 'OTP entry not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'OTP entry not found'},
+                    status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 
 class ResendOTPView(APIView):
@@ -120,9 +147,14 @@ class ResendOTPView(APIView):
         otp_instance, message = resend_otp(phone_number)
 
         if otp_instance:
-            return Response({'message': message}, status=status.HTTP_200_OK)
+            return Response({'message': message}, 
+                            status=status.HTTP_200_OK
+                            )
         else:
-            return Response({'error': message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': message}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
 
 
@@ -171,6 +203,8 @@ class ChangePhoneNumberView(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             phone_number = serializer.validated_data['phone_number']
+            request.session['phone_number'] = phone_number
+
 
             otp_instance, message = generate_and_send_otp(phone_number)
 
@@ -193,6 +227,7 @@ class VerifyChangePhoneNumberView(APIView):
     """
     def post(self, request):
         phone_number = request.session.get('phone_number')
+        print(phone_number)
         otp_entered = request.data.get('otp')
         user = request.user
         from django.contrib.auth.models import AnonymousUser
@@ -256,7 +291,10 @@ class WishListAPIView(APIView):
         """
         room_id = request.data.get('room_id')
         if not room_id:
-            return Response({'error': 'Missing room_id field'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Missing room_id field'}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
         try:
             # Ensure room_id is converted to int
@@ -264,18 +302,31 @@ class WishListAPIView(APIView):
             # Check if the room exists
             room = Room.objects.get(pk=room_id)
         except (ValueError, Room.DoesNotExist):
-            return Response({'error': 'Invalid room_id'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Invalid room_id'}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
         user = request.user
         # Check if the wishlist already contains the room
-        existing_wishlist = WishList.objects.filter(user=user, room_id=room_id)
+        existing_wishlist = WishList.objects.filter(
+            user=user, 
+            room_id=room_id
+            )
         if existing_wishlist.exists():
-            return Response({'error': 'Room already in wishlist'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(
+                {'error': 'Room already in wishlist'}, 
+                status=status.HTTP_400_BAD_REQUEST
+                )
 
         # Create a new wishlist item
         wishlist = WishList(user=user, room_id=room_id)
         wishlist.save()
-        return Response(WishListSerializer(wishlist).data, status=status.HTTP_201_CREATED)
+        return Response(
+            WishListSerializer(wishlist).data,
+                status=status.HTTP_201_CREATED
+                )
 
     def delete(self, request, pk):
         """
@@ -284,10 +335,16 @@ class WishListAPIView(APIView):
         try:
             wishlist = WishList.objects.get(pk=pk)
         except WishList.DoesNotExist:
-            return Response({'error': 'Wishlist not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'Wishlist not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+                )
 
         if wishlist.user != request.user:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'error': 'Permission denied'}, 
+                status=status.HTTP_403_FORBIDDEN
+                )
 
         wishlist.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -300,3 +357,52 @@ class WishListAPIView(APIView):
         wishlists = WishList.objects.filter(user=user)
         serializer = WishListSerializer(wishlists, many=True)
         return Response(serializer.data)
+    
+
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Room
+from .serializers import RoomSerializer
+from .filters import RoomFilter  # Ensure this import is correct
+
+class RoomListView(ListAPIView):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    
+    # Specify filter backends
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    
+    # Specify filter set class
+    filterset_class = RoomFilter
+    
+    # Define searchable fields
+    search_fields = [
+        'location__city__name',
+        'location__country__name', 
+        'location__name'
+        ]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Retrieve the search query from the request
+        search_query = request.GET.get('search', '')
+
+        # Check if there are any results in the queryset
+        if not queryset.exists():
+            # Return a custom message and HTTP 404 status if no results are found
+            return Response({
+                'detail': f"Your search '{search_query}' did not match any rooms.",
+                'suggestions': [
+                    "Make sure that all words are spelled correctly.",
+                    "Try different keywords.",
+                    "Try more general keywords.",
+                    "Try fewer keywords."
+                ]
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # If results are found, return the standard list response
+        return super().list(request, *args, **kwargs)
