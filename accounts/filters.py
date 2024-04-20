@@ -1,5 +1,5 @@
 import django_filters
-from .models import Room
+from rooms.models import Room
 from rooms.models import *
 class RoomFilter(django_filters.FilterSet):
     # Define filters

@@ -37,6 +37,7 @@ class GoogleSignInView(APIView):
         access_token = serializer.validated_data.get('access_token')
         return Response({'message': 'Email sign-in successful'},
                         status=status.HTTP_200_OK)
+    
 
 
 

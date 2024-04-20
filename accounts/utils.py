@@ -1,5 +1,5 @@
 import random
-from google.auth.transport import requests
+from google.auth.transport import requests as GoogleRequest
 from google.oauth2 import id_token
 from django.contrib.auth import authenticate
 from django.conf import settings
@@ -22,7 +22,7 @@ from phonenumbers import parse as phonenumbers_parse, is_valid_number as phonenu
 from rest_framework import serializers
 from .constants import *
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.conf import settings
 
 
 def generate_otp_code():
@@ -37,12 +37,15 @@ def generate_otp_code():
 class GoogleAuthenticator:
     @staticmethod
     def validate(access_token):
+        print(settings.GOOGLE_CLIENT_ID)
         try:
-            id_info = id_token.verify_oauth2_token(access_token, requests.Request())
+            print('hai')
+            id_info = id_token.verify_oauth2_token(access_token, GoogleRequest.Request(),settings.GOOGLE_CLIENT_ID)
             if "accounts.google.com" in id_info['iss']:
                 return id_info
+            
         except Exception as e:
-            return "token is invalid or has expired "
+            return f"{e}"
 
 
 def login_social_user(email,password):
@@ -277,3 +280,29 @@ def validate_name(value):
     if not value:
             raise serializers.ValidationError("Name cannot be empty.")
     return value 
+
+def generate_otp(phone_number):
+    """
+    Generate a new OTP for the given phone number.
+    
+    Args:
+        phone_number (str): The phone number to generate OTP for.
+    
+    Returns:
+        OTP: The generated OTP instance.
+    """
+    otp_code = generate_otp_code()  # Assuming this function exists
+    otp_expiry = timezone.now() + timedelta(minutes=5)
+
+    otp_instance, created = OTP.objects.get_or_create(
+        phone_number=phone_number,
+        defaults={'otp_code': otp_code, 'otp_expiry': otp_expiry}
+    )
+
+    if not created:
+        # Update existing OTP instance
+        otp_instance.otp_code = otp_code
+        otp_instance.otp_expiry = otp_expiry
+        otp_instance.save()
+
+    return otp_instance

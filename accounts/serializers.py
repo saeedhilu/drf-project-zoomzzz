@@ -13,19 +13,23 @@ class GoogleSignSerializer(serializers.Serializer):
     access_token = serializers.CharField(min_length=5)
 
     def validate_access_token(self, access_token):
-        google_user_data = GoogleAuthenticator.validate(access_token)
+        user_data = GoogleAuthenticator.validate(access_token)
+        
+        
         try:
-            userid = google_user_data['sub']
-        except Exception as e:
-            raise ValidationError('This token is expired')
+            user_data['sub']
+        except:
+            raise serializers.ValidationError(
+                'The token is invalid or expired. Please login again.'
+            )       
+        if user_data['aud'] != settings.GOOGLE_CLIENT_ID:
+
+            raise serializers.ValidationError('your are not google user')
         
-        if google_user_data['aud'] != settings.GOOGLE_CLIENT_ID:
-            raise AuthenticationFailed(detail="Could not verify user")
-        
-        email = google_user_data['email']
+        email = user_data['email']
         username = email.split('@')[0]
-        provider = 'google'
-        return register_social_user(provider, email, username)
+        # provider = 'google'
+        return register_social_user( email, username)
 
 
 class GenerateOTPSerializer(PhoneNumberMixin, serializers.Serializer):

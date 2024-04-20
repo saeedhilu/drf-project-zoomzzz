@@ -92,7 +92,8 @@ AUTH_USER_MODEL = 'accounts.User'
 
 APPEND_SLASH = False
 
-
+CORS_ALLOW_ALL_ORIGINS = True 
+CORS_URL_REGEX = r"^/api/.*"
 
 INSTALLED_APPS = [
     
@@ -108,6 +109,12 @@ INSTALLED_APPS = [
     'admin_portal',  
     'vendor_management',  
     'rooms',  
+    'django_filters',
+
+    #corsheaders apps
+    'corsheaders',
+
+    
 
 
 ]
@@ -119,6 +126,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # corsheader
+    'corsheaders.middleware.CorsMiddleware'
 ]
 
 
@@ -201,7 +211,6 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_SECRET")
-SOCIAL_AUTH_PASSWORD = os.getenv("SOCIAL_PASSWORD")
+CUSTOM_PASSWORD_FOR_AUTH = os.getenv("SOCIAL_PASSWORD")
 SPRING_EDGE_API_KEY = '621492a44a89m36c2209zs4l7e74672cj'
