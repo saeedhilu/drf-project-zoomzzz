@@ -10,7 +10,7 @@ from .models import User,OTP,WishList
 class UserAdmin(admin.ModelAdmin):
     list_display = ['phone_number', 'username','first_name','last_name', 'date_joined', 'last_login', 'is_staff', 'is_superuser', 'is_active','email','is_vendor','password'] 
 class WhishListAdmin(admin.ModelAdmin):
-    list_display = ['user','room','created_at']
+    list_display = ['id','user','room','created_at']
 
 
 

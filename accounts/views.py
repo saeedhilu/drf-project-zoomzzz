@@ -4,13 +4,26 @@ from rest_framework.views import APIView
 from datetime import timedelta
 from django.utils import timezone
 from .models import OTP, User
+from rest_framework.generics import ListAPIView
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import RoomFilter  
+from rooms.models import Room
+from rooms.serializers import RoomSerializer
 from .constants import OTP_STILL_VALID
+from .models import WishList
+from .serializers import WishListSerializer
+from django.core.cache import cache
+
+
+
 from .serializers import (
     GenerateOTPSerializer,
     GoogleSignSerializer,
     UserProfileEditSerializer,
     ChangePhoneNumberSerializer
     )
+from .constants import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .utils import (
@@ -21,6 +34,10 @@ from .utils import (
     resend_otp,
     verify_otp
     )   
+
+
+
+
 
 class GoogleSignInView(APIView):
     """
@@ -43,7 +60,8 @@ class GoogleSignInView(APIView):
 
 class GenerateOTPView(APIView):
     """
-    This view is used to generate and send OTP to the user.(Phone number signup)
+    This view is used to generate and send OTP to the user
+                (Phone number signup)
     """
     serializer_class = GenerateOTPSerializer
 
@@ -68,7 +86,7 @@ class GenerateOTPView(APIView):
                     )
 
             otp_instance.otp_code = generate_otp_code()
-            otp_instance.otp_expiry = timezone.now() + timezone.timedelta(minutes=5)  # Set expiry time, adjust as needed
+            otp_instance.otp_expiry = timezone.now() + timezone.timedelta(minutes=5)  
             otp_instance.save()
 
             message = f'Your OTP IS : {otp_instance.otp_code}'
@@ -76,7 +94,7 @@ class GenerateOTPView(APIView):
 
             if sms_sent:
                 return Response(
-                    {'message': 'OTP generated and sent successfully'}, 
+                    {'message': GENERATE_OTP_MESSAGE}, 
                     status=status.HTTP_200_OK
                     )
             else:
@@ -228,7 +246,6 @@ class VerifyChangePhoneNumberView(APIView):
     """
     def post(self, request):
         phone_number = request.session.get('phone_number')
-        print(phone_number)
         otp_entered = request.data.get('otp')
         user = request.user
         from django.contrib.auth.models import AnonymousUser
@@ -241,49 +258,59 @@ class VerifyChangePhoneNumberView(APIView):
         if is_valid:
             user.phone_number = phone_number
             user.save()
-            return Response({'message': 'Phone number updated successfully'}, 
+            # get
+            return Response({'message': PHONE_SUCCESS}, 
                             status=status.HTTP_200_OK)
         else:
             return Response({'error': message}, 
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-from rooms.models import Room
-from rooms.serializers import RoomSerializer
-
-
 class AllRoomsView(APIView):
     """
     API endpoint to retrieve all room data.
     """
-
+    
     def get(self, request):
-        rooms = Room.objects.all()
+        cache_key = 'all_rooms_view'
+        rooms = cache.get(cache_key)
+        
+        if rooms is None:
+            rooms = Room.objects.prefetch_related(
+                'location',
+                'amenities'
+                )
+            cache.set(cache_key, rooms, timeout=300)  
+        
         serializer = RoomSerializer(rooms, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data)    
+    
+
 
 
 class RoomDetailAPIView(APIView):
     """
     This End point for listing selected Room
     """
+
     def get(self, request, pk):
         try:
-            room = Room.objects.get(pk=pk)  # Retrieve room by primary key
-            
+            # Reduce redundant location queries and avoid unnecessary data fetching
+            room = Room.objects.select_related('room_type', 'location').prefetch_related('amenities').get(pk=pk)
+
+            serializer = RoomSerializer(room)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except Room.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        serializer = RoomSerializer(room)  # Serialize the retrieved room
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
-from .models import WishList
-from .serializers import WishListSerializer
 
 
 
 class WishListAPIView(APIView):
+    """
+    This End point for listing all WishList(
+        create,delete,get)
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -340,15 +367,21 @@ class WishListAPIView(APIView):
                 {'error': 'Wishlist not found'}, 
                 status=status.HTTP_404_NOT_FOUND
                 )
+        
 
-        if wishlist.user != request.user:
-            return Response(
-                {'error': 'Permission denied'}, 
-                status=status.HTTP_403_FORBIDDEN
-                )
+        
+        # # TODO Add permission classes
+        # if wishlist.user != request.user:
+        #     return Response(
+        #         {'error': 'Permission denied'}, 
+        #         status=status.HTTP_403_FORBIDDEN
+                # )
 
         wishlist.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {'message':SUCCESS_MESSAGE},
+            status=status.HTTP_204_NO_CONTENT
+            )
 
     def get(self, request):
         """
@@ -360,16 +393,12 @@ class WishListAPIView(APIView):
         return Response(serializer.data)
     
 
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.generics import ListAPIView
-from rest_framework.filters import SearchFilter
-from django_filters.rest_framework import DjangoFilterBackend
-from .models import Room
-from .serializers import RoomSerializer
-from .filters import RoomFilter  # Ensure this import is correct
+
 
 class RoomListView(ListAPIView):
+    """
+    This view is used to search and filter rooms
+    """
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
     

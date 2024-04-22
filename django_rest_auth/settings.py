@@ -113,6 +113,7 @@ INSTALLED_APPS = [
 
     #corsheaders apps
     'corsheaders',
+    'debug_toolbar',    
 
     
 
@@ -126,10 +127,16 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 
     # corsheader
     'corsheaders.middleware.CorsMiddleware'
+
+
 ]
+
+
+
 
 
 
@@ -154,15 +161,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'django_rest_auth.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 # AUTHENTICATION_BACKENDS = [
 #     'django.contrib.auth.backends.ModelBackend',  # Keep the default ModelBackend
 #     'accounts.backends.UserBackend',  # Add your custom authentication backend
@@ -171,6 +170,16 @@ WSGI_APPLICATION = 'django_rest_auth.wsgi.application'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
+
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -214,3 +223,8 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_SECRET")
 CUSTOM_PASSWORD_FOR_AUTH = os.getenv("SOCIAL_PASSWORD")
 SPRING_EDGE_API_KEY = '621492a44a89m36c2209zs4l7e74672cj'
+
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]

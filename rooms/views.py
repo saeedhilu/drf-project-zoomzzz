@@ -5,20 +5,35 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Room
 from .serializers import RoomSerializer
 from rest_framework.exceptions import NotFound
+from accounts.constants import *
 class RoomCreateAPIView(APIView):
+    """
+    This view is used to create a room
+    """
     permission_classes = [IsAuthenticated]  # Only authenticated users can access
 
     def post(self, request, format=None):
         if not request.user.is_vendor:  # Check if user is a vendor
-            return Response({'error': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'error': PERMISSION_DENIED},
+                status=status.HTTP_403_FORBIDDEN
+                            )
         
         serializer = RoomSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)  # Assign the vendor as the creator of the room
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.data, 
+                status=status.HTTP_201_CREATED
+                )
+        return Response(serializer.errors, 
+                        status=status.HTTP_400_BAD_REQUEST
+                        )
 
 class RoomDetailAPIView(APIView):
+    """
+    This view is used to retrieve, update or delete a room
+    """
     permission_classes = [IsAuthenticated]  # Only authenticated users can access
 
     def get_object(self, pk):
@@ -45,7 +60,12 @@ class RoomDetailAPIView(APIView):
 
         # Check permission (modify this as needed)
         if not request.user.is_vendor :
-            return Response({'error': 'You do not have permission to delete this room.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': PERMISSION_DENIED}, \
+                            status=status.HTTP_403_FORBIDDEN
+                            )
 
         room.delete()
-        return Response({'message': f'Successfully deleted {room.name}.'}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {'message': f'Successfully deleted {room.name}.'}, 
+            status=status.HTTP_204_NO_CONTENT
+            )

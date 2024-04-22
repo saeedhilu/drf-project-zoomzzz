@@ -36,11 +36,11 @@ class GenerateEmailSerializer(serializers.Serializer):
     """
     Serializer for generating email OTP and user registration.
     """ 
-    first_name = serializers.CharField(max_length=100)
-    last_name = serializers.CharField(max_length=100)
-    email = serializers.EmailField(validators=[email_validator, validate_unique_email])
+    first_name   = serializers.CharField(max_length=100)
+    last_name    = serializers.CharField(max_length=100)
+    email        = serializers.EmailField(validators=[email_validator, validate_unique_email])
     phone_number = serializers.CharField(max_length=15, validators=[ validate_phone_number])
-    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    password     = serializers.CharField(write_only=True, style={'input_type': 'password'})
     confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, data):

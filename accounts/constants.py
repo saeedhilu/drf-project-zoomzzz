@@ -35,6 +35,7 @@ OTP_ALREADY_EXISTS = 'A valid OTP already exists for this email address.'
 GENERATE_OTP_MESSAGE = 'OTP generated and sent successfully'
 EMAIL_NOT_EXIST = 'User with this email does not exist'
 PASSWORD_SUCCESS = 'Password changed successfully'
+PHONE_SUCCESS = 'Phone number changed successfully'
 PERMISSION_DENIED = "You do not have permission to perform this action."
 
 

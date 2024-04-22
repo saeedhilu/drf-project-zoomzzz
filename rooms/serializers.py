@@ -32,19 +32,19 @@ class RoomSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         location_data = validated_data.pop('location')
         
-        # Extract the city object from the location data
+        
         city_obj = location_data.get('city')
         country_obj = location_data.get('country')
         if country_obj is not None:
             country_id = country_obj.id
             location_data['country'] = country_id
         
-        # Check if city_obj is not None
+        
         if city_obj is not None:
-            # Extract the primary key (ID) from the city object
+            
             city_id = city_obj.id
             
-            # Replace the city object in location_data with its ID
+            
             location_data['city'] = city_id
         
         # Create the Location object with the modified location_data
@@ -69,7 +69,7 @@ class RoomSerializer(serializers.ModelSerializer):
         location_data = validated_data.pop('location', None)
         
         if location_data:
-            # Allow partial updates for the nested location serializer
+        
             location_serializer = LocationSerializer(instance.location, data=location_data, partial=True)
             if location_serializer.is_valid():
                 location_serializer.save()

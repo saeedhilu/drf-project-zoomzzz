@@ -74,7 +74,6 @@ class AbstractCRUDView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         serializer = self.serializer_class(data=request.data)
-        print('hekl')
         if serializer.is_valid():
             serializer.save()
             return Response(
