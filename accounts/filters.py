@@ -5,7 +5,7 @@ from django.db.models import Q
 from django_filters import rest_framework as filters
 
 from rooms.models import Room, Category, Amenity, RoomType, BedType
-from .models import Booking
+from .models import Reservation
 
 class RoomFilter(FilterSet):
     """
@@ -45,10 +45,18 @@ class RoomFilter(FilterSet):
 
         # Filter rooms based on availability in the specified date range
         # Exclude rooms that have bookings overlapping with the specified date range
-        available_rooms = queryset.exclude(
-            Q(bookings__check_in__lt=check_out_date) & Q(bookings__check_out__gt=check_in_date)
-        ).distinct()
+        excluded_statuses = ['PENDING', 'Pending']
 
+# Create a Q object that combines conditions for all excluded statuses
+        exclude_conditions = Q()
+        for status in excluded_statuses:
+            exclude_conditions |= Q(bookings__reservation_status=status)
+        available_rooms = queryset.exclude(
+        Q(bookings__check_in__lt=check_out_date) &
+        Q(bookings__check_out__gt=check_in_date) &
+        Q(bookings__is_active=True) &
+        exclude_conditions
+        ).distinct()
         return available_rooms
 
     class Meta:

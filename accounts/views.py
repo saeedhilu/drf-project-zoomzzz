@@ -373,8 +373,6 @@ class WishListAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
                 )
         
-
-        
         # # TODO Add permission classes
         # if wishlist.user != request.user:
         #     return Response(
@@ -440,10 +438,30 @@ class RoomListView(ListAPIView):
         # If results are found, return the standard list response
         return super().list(request, *args, **kwargs)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .models import Booking, Room
+from .models import Reservation, Room
 from .serializers import ReservationSerializer
 
 class ReservationCreateAPIView(generics.CreateAPIView):
@@ -451,16 +469,19 @@ class ReservationCreateAPIView(generics.CreateAPIView):
     serializer_class = ReservationSerializer
 
     def perform_create(self, serializer):
-        # Retrieve the room from the URL using the 'room_id' parameter
         room_id = self.kwargs.get('room_id')
         room = get_object_or_404(Room, id=room_id)
-
-        # Calculate the total price for the booking
+        user = self.request.user
+        print('request.user:', self.request.user)
+        
+        
+        # Calculate total price
         total_days = (serializer.validated_data['check_out'] - serializer.validated_data['check_in']).days
         total_price = total_days * room.price_per_night * serializer.validated_data['total_guest']
 
-        # Save the booking with the current user, the room instance, and the calculated total price
-        serializer.save(user=self.request.user, room=room, amount=total_price)
+        # Save the booking
+        serializer.save(user=self.request.user ,room=room, amount=total_price)
+
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -469,3 +490,36 @@ class ReservationCreateAPIView(generics.CreateAPIView):
         room = get_object_or_404(Room, id=room_id)
         context['room'] = room
         return context
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
+
+
+class BookingCancelAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        # Fetch the booking
+        booking = get_object_or_404(Reservation, pk=pk)
+        
+        # Ensure the user making the request is the owner of the booking
+        if booking.user != request.user:
+            return Response({'status': 'error', 'message': 'You do not have permission to cancel this booking.'}, status=403)
+        
+        # Calculate the time difference between the current time and booking creation time
+        time_difference = timezone.now() - booking.created_at
+        
+        # Check if the 2-minute cancellation window has passed
+        two_minutes_in_seconds = 2 * 60
+        if time_difference.total_seconds() > two_minutes_in_seconds:
+            return Response({'status': 'error', 'message': 'Booking cannot be canceled as the 2-minute cancellation window has passed.'}, status=400)
+        
+        # Attempt to cancel the booking
+        booking.is_active = False
+        booking.reservation_status = 'CANCELED'
+        booking.save()
+        
+        return Response({'status': 'success', 'message': 'Booking canceled successfully.'})

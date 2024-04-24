@@ -110,7 +110,7 @@ class WishList(models.Model):
 
 from django.db import models
 
-class Booking(models.Model):
+class Reservation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='bookings')
     check_in = models.DateField()
@@ -126,10 +126,11 @@ class Booking(models.Model):
         default='PENDING'
     )
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Add amount field
 
-    def __str__(self):
-        return f"Booking by {self.user.username} for room {self.room.name} from {self.check_in} to {self.check_out}, payment status {self.reservation_status}"
+
+    
 
 
 

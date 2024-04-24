@@ -12,7 +12,8 @@ from .views import (
     RoomDetailAPIView,
     WishListAPIView,
     RoomListView,
-    ReservationCreateAPIView
+    ReservationCreateAPIView,
+    BookingCancelAPIView
 )
 
 urlpatterns = [
@@ -29,6 +30,7 @@ urlpatterns = [
     path('wishlists/', WishListAPIView.as_view()),
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
     path('reservations/<int:room_id>/', ReservationCreateAPIView.as_view(), name='create_reservation'),
+    path('reservations/canellation/<int:pk>/', BookingCancelAPIView.as_view(), name='booking-cancel'),
     
     
 #     # path('login/', LoginUserView.as_view(), name='login'),

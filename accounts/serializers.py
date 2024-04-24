@@ -110,10 +110,9 @@ class WishListSerializer(serializers.ModelSerializer):
 
 
 
-
 from rest_framework import serializers
 from datetime import date
-from .models import Booking, Room
+from .models import Reservation, Room
 
 class ReservationSerializer(serializers.ModelSerializer):
     check_in = serializers.DateField()
@@ -121,7 +120,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     total_guest = serializers.IntegerField()
     
     class Meta:
-        model = Booking
+        model =  Reservation
         fields = ['check_in', 'check_out', 'total_guest']
 
     def validate(self, data):
@@ -148,7 +147,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             )
 
         # Check for overlapping bookings
-        overlapping_bookings = Booking.objects.filter(
+        overlapping_bookings = Reservation.objects.filter(
             room=room,
             check_in__lt=check_out,
             check_out__gt=check_in
