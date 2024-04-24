@@ -92,8 +92,14 @@ class VenodrVerifyView(APIView):
     API endpoint to verify email OTP and authenticate user as a vendor.
     """
     def post(self, request):
+        
         email        = request.session.get('email')
         otp_entered  = request.data.get('otp')
+       
+        print(email)
+        print(otp_entered)
+        
+        # Get the data from session
 
         first_name   = request.session.get('first_name')
         last_name    = request.session.get('last_name')

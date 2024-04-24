@@ -282,6 +282,7 @@ def validate_name(value):
     return value 
 
 def generate_otp(phone_number):
+
     """
     Generate a new OTP for the given phone number.
     
@@ -306,3 +307,13 @@ def generate_otp(phone_number):
         otp_instance.save()
 
     return otp_instance
+
+
+
+
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+
+def get_random_secret_key():
+    """Generates a cryptographically secure random string suitable for use as a cancellation token."""
+    generator = PasswordResetTokenGenerator()
+    return generator.make_token()

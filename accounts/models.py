@@ -99,3 +99,54 @@ class WishList(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+
+
+
+
+
+
+from django.db import models
+
+class Booking(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='bookings')
+    check_in = models.DateField()
+    check_out = models.DateField()
+    total_guest = models.IntegerField()
+    reservation_status = models.CharField(
+        max_length=20,
+        choices=(
+            ('PENDING', 'Pending'),
+            ('CONFIRMED', 'Confirmed'),
+            ('CANCELED', 'Canceled'),
+        ),
+        default='PENDING'
+    )
+    is_active = models.BooleanField(default=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Add amount field
+
+    def __str__(self):
+        return f"Booking by {self.user.username} for room {self.room.name} from {self.check_in} to {self.check_out}, payment status {self.reservation_status}"
+
+
+
+# class Payment(models.Model):
+#     booking = models.ForeignKey('Booking', on_delete=models.CASCADE, related_name='payments')
+#     payment_method = models.CharField(max_length=50)
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     payment_date = models.DateTimeField(auto_now_add=True)
+#     payment_status = models.CharField(
+#         max_length=20,
+#         choices=(
+#             ('PENDING', 'Pending'),
+#             ('PAID', 'Paid'),
+#             ('FAILED', 'Failed'),
+#         ),
+#         default='PENDING'
+#     )
+
+#     def __str__(self):
+#         return f"Payment of {self.amount} for booking {self.booking.id} with status {self.payment_status}"

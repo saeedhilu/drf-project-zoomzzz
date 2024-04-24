@@ -1,3 +1,4 @@
+import datetime
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -69,11 +70,15 @@ class GenerateOTPView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone_number = serializer.validated_data['phone_number']
+        print(phone_number)
+        
 
         try:
-            existing_phone_number = request.session.get('phone_number')
-            if existing_phone_number and existing_phone_number != phone_number:
-                request.session['phone_number'] = phone_number
+            # existing_phone_number = request.session.get('phone_number')
+            # if existing_phone_number and existing_phone_number != phone_number:
+            request.session['phone_number'] = phone_number
+            
+
 
             otp_instance, created = OTP.objects.get_or_create(
                             phone_number=phone_number
@@ -114,9 +119,9 @@ class VerifyOTPView(APIView):
     This endpoint is used to verify the OTP sent to the user.(phone number otp)
     """
     def post(self, request):
-        phone_number = request.session.get('phone_number')
+        phone_number     = request.session.get('phone_number')
         otp_entered = request.data.get('otp')
-        print(phone_number)
+        print('Phone number is ',phone_number)
 
         try:
             otp_instance = OTP.objects.get(phone_number=phone_number)
@@ -393,8 +398,6 @@ class WishListAPIView(APIView):
         return Response(serializer.data)
     
 
-
-
 class RoomListView(ListAPIView):
     """
     This view is used to search and filter rooms
@@ -436,3 +439,33 @@ class RoomListView(ListAPIView):
 
         # If results are found, return the standard list response
         return super().list(request, *args, **kwargs)
+
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from .models import Booking, Room
+from .serializers import ReservationSerializer
+
+class ReservationCreateAPIView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReservationSerializer
+
+    def perform_create(self, serializer):
+        # Retrieve the room from the URL using the 'room_id' parameter
+        room_id = self.kwargs.get('room_id')
+        room = get_object_or_404(Room, id=room_id)
+
+        # Calculate the total price for the booking
+        total_days = (serializer.validated_data['check_out'] - serializer.validated_data['check_in']).days
+        total_price = total_days * room.price_per_night * serializer.validated_data['total_guest']
+
+        # Save the booking with the current user, the room instance, and the calculated total price
+        serializer.save(user=self.request.user, room=room, amount=total_price)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Include the room instance in the serializer context
+        room_id = self.kwargs.get('room_id')
+        room = get_object_or_404(Room, id=room_id)
+        context['room'] = room
+        return context

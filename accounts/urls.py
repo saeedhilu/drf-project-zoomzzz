@@ -1,3 +1,4 @@
+
 from django.urls import path
 from .views import (
     GoogleSignInView,
@@ -10,7 +11,8 @@ from .views import (
     AllRoomsView,
     RoomDetailAPIView,
     WishListAPIView,
-    RoomListView
+    RoomListView,
+    ReservationCreateAPIView
 )
 
 urlpatterns = [
@@ -26,7 +28,7 @@ urlpatterns = [
     path('room-detail/<int:pk>/', RoomDetailAPIView.as_view(), name='room-detail'),
     path('wishlists/', WishListAPIView.as_view()),
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
-
+    path('reservations/<int:room_id>/', ReservationCreateAPIView.as_view(), name='create_reservation'),
     
     
 #     # path('login/', LoginUserView.as_view(), name='login'),

@@ -92,3 +92,74 @@ class WishListSerializer(serializers.ModelSerializer):
         model = WishList
         fields = '__all__'
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from rest_framework import serializers
+from datetime import date
+from .models import Booking, Room
+
+class ReservationSerializer(serializers.ModelSerializer):
+    check_in = serializers.DateField()
+    check_out = serializers.DateField()
+    total_guest = serializers.IntegerField()
+    
+    class Meta:
+        model = Booking
+        fields = ['check_in', 'check_out', 'total_guest']
+
+    def validate(self, data):
+        # Retrieve room from context
+        room = self.context.get('room')
+        
+        # Retrieve check-in, check-out dates and total guests from data
+        check_in = data.get('check_in')
+        check_out = data.get('check_out')
+        total_guest = data.get('total_guest')
+
+        # Check date validity: check-in date must be before check-out date
+        if check_in >= check_out:
+            raise serializers.ValidationError("Check-in date must be before check-out date.")
+
+        # Check that check-in date is in the future
+        if check_in < date.today():
+            raise serializers.ValidationError("Check-in date must be in the future.")
+        
+        # Check guest count against room's max occupancy
+        if room and total_guest > room.max_occupancy:
+            raise serializers.ValidationError(
+                f"The room can only accommodate up to {room.max_occupancy} guests, but you requested {total_guest} guests."
+            )
+
+        # Check for overlapping bookings
+        overlapping_bookings = Booking.objects.filter(
+            room=room,
+            check_in__lt=check_out,
+            check_out__gt=check_in
+        )
+
+        # Exclude the current booking if editing an existing booking
+        if self.instance:
+            overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
+        
+        # If overlapping bookings exist, raise a validation error
+        if overlapping_bookings.exists():
+            raise serializers.ValidationError("The room is already booked within the specified time range.")
+
+        return data
