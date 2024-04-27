@@ -8,7 +8,7 @@
 from django.contrib import admin
 from .models import User,OTP,WishList,Reservation
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['phone_number', 'username','first_name','last_name', 'date_joined', 'last_login', 'is_staff', 'is_superuser', 'is_active','email','is_vendor','password'] 
+    list_display = ['id','phone_number', 'username','first_name','last_name', 'date_joined', 'last_login', 'is_staff', 'is_superuser', 'is_active','email','is_vendor','password'] 
 class WhishListAdmin(admin.ModelAdmin):
     list_display = ['id','user','room','created_at']
 

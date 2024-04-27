@@ -137,3 +137,25 @@ class LocationSerializer(serializers.ModelSerializer):
         city, _ = City.objects.get_or_create(name=city_name)
         location = Location.objects.create(city=city, country=country, **validated_data)
         return location
+
+
+
+
+
+
+
+
+
+from rest_framework import serializers
+from accounts.models import User
+
+class UserBlockUnblockSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'is_active']
+
+    def update(self, instance, validated_data):
+        # Update the user's is_active status based on the provided value
+        instance.is_active = validated_data.get('is_active', instance.is_active)
+        instance.save()
+        return instance

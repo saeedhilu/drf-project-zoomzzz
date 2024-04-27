@@ -91,3 +91,17 @@ class Room(models.Model):
 
     def __str__(self):
         return self.name
+
+from .models import Room
+from accounts.models import User
+
+
+
+"""
+££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££ here starting for start make rating
+
+"""
+class Rating(models.Model):
+    room = models.ForeignKey(Room, verbose_name=(""), on_delete=models.CASCADE)
+    user = models.ForeignKey(User, verbose_name=(""), on_delete=models.CASCADE)
+    rating = models.IntegerField(max_length=5)

@@ -1,3 +1,4 @@
+
 from rest_framework import serializers
 from .models import Room, Category, RoomType, BedType, Amenity, Location, City,Country
 

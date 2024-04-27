@@ -321,3 +321,79 @@ def get_random_secret_key():
 
 
 
+from django.core.cache import cache
+
+def cache_queryset(key, queryset, timeout=300):
+    result = cache.get(key)
+    print('from cache')
+    if not result:
+        print('form db')
+        result = queryset
+        cache.set(key, result, timeout)
+    return result
+
+
+
+
+
+
+from django.utils import timezone
+from datetime import timedelta
+from .models import Reservation, User
+from django.db.models import Q
+def get_summary_statistics():
+    # Get total bookings
+    total_bookings = Reservation.objects.count()
+    
+    # Get total vendors
+    # Assuming vendors are stored in the User table with a field 'is_vendor' indicating vendor status
+    total_vendors = User.objects.filter(is_vendor=True).count()
+    
+    # Calculate total check-ins
+    # Count bookings where the reservationstatus is 'pending'
+    total_check_ins = Reservation.objects.filter(
+        Q(reservation_status='Pending') | Q(reservation_status='PENDING')
+    ).count()
+    
+    # Calculate total check-outs
+    # Count bookings where the reservationstatus is 'conformed'
+    total_check_outs = Reservation.objects.filter(
+        Q(reservation_status='CONFIRMED') | Q(reservation_status='Confirmed')
+    ).count()
+    
+    return {
+        'total_bookings': total_bookings,
+        'total_vendors': total_vendors,
+        'total_check_ins': total_check_ins,
+        'total_check_outs': total_check_outs,
+    }
+
+def  get_vendor_summary_statistics(user_id):
+    print('hello')
+    try:
+        # Get total bookings for the vendor
+        total_bookings = Reservation.objects.filter(room__created_by=user_id).select_related('user', 'room').count()
+        print('total booking si ',total_bookings)
+        # Calculate total check-ins for the vendor
+        # Count bookings where the reservation status is 'Pending' or 'PENDING'
+        total_check_ins = Reservation.objects.filter(room__created_by=user_id,reservation_status='Pending').count()
+        print('total checking is ',total_check_ins)
+
+        # Calculate total check-outs for the vendor
+        # Count bookings where the reservation status is 'CONFIRMED' or 'Confirmed'
+        total_check_outs = Reservation.objects.filter(room__created_by=user_id,reservation_status='Confirmed').count()
+        print(total_check_outs)
+
+        one_week_ago = timezone.now() - timedelta(days=1)
+        today_check_ins = Reservation.objects.filter()
+
+
+
+        return {
+            'total_bookings': total_bookings,
+            'total_check_ins': total_check_ins,
+            'total_check_outs': total_check_outs,
+        }
+    except Exception as e:
+        # Handle exceptions, such as invalid user_id or database errors
+        return {'error': str(e)}

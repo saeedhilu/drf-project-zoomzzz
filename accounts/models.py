@@ -116,15 +116,22 @@ class Reservation(models.Model):
     check_in = models.DateField()
     check_out = models.DateField()
     total_guest = models.IntegerField()
-    reservation_status = models.CharField(
-        max_length=20,
-        choices=(
-            ('PENDING', 'Pending'),
-            ('CONFIRMED', 'Confirmed'),
-            ('CANCELED', 'Canceled'),
-        ),
-        default='PENDING'
+    PENDING = 'Pending'
+    CONFIRMED = 'Confirmed'
+    CANCELED = 'Canceled'
+
+    RESERVATION_STATUS_CHOICES = (
+        (PENDING, 'Pending'),
+        (CONFIRMED, 'Confirmed'),
+        (CANCELED, 'Canceled'),
     )
+
+    reservation_status = models.CharField(
+        max_length=10,
+        choices=RESERVATION_STATUS_CHOICES,
+        default=PENDING,
+    )
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Add amount field

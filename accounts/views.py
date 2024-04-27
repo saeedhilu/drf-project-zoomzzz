@@ -6,23 +6,32 @@ from datetime import timedelta
 from django.utils import timezone
 from .models import OTP, User
 from rest_framework.generics import ListAPIView
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter,OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import RoomFilter  
 from rooms.models import Room
 from rooms.serializers import RoomSerializer
 from .constants import OTP_STILL_VALID
 from .models import WishList
-from .serializers import WishListSerializer
 from django.core.cache import cache
+from rest_framework.generics import RetrieveAPIView
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from .models import Reservation, Room
+from .permission import IsActiveUser
 
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 
 from .serializers import (
     GenerateOTPSerializer,
     GoogleSignSerializer,
     UserProfileEditSerializer,
-    ChangePhoneNumberSerializer
+    ChangePhoneNumberSerializer,
+    ReservationSerializer,
+    WishListSerializer
     )
 from .constants import *
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -270,6 +279,7 @@ class VerifyChangePhoneNumberView(APIView):
             return Response({'error': message}, 
                             status=status.HTTP_400_BAD_REQUEST)
 
+from .utils import cache_queryset
 
 class AllRoomsView(APIView):
     """
@@ -278,36 +288,47 @@ class AllRoomsView(APIView):
     
     def get(self, request):
         cache_key = 'all_rooms_view'
-        rooms = cache.get(cache_key)
         
-        if rooms is None:
-            rooms = Room.objects.prefetch_related(
-                'location',
-                'amenities'
-                )
-            cache.set(cache_key, rooms, timeout=300)  
+        # Use cache_queryset function
+        rooms = cache_queryset(cache_key, Room.objects.prefetch_related(
+            'location',
+            'amenities'
+        ), timeout=300)
         
         serializer = RoomSerializer(rooms, many=True)
-        return Response(serializer.data)    
-    
+        return Response(serializer.data)
 
-
-
-class RoomDetailAPIView(APIView):
+class RoomDetailAPIView(RetrieveAPIView):
     """
-    This End point for listing selected Room
+    API view for retrieving the details of a selected room.
     """
+    queryset = Room.objects.select_related('room_type', 'location').prefetch_related('amenities')
+    serializer_class = RoomSerializer
 
     def get(self, request, pk):
-        try:
-            # Reduce redundant location queries and avoid unnecessary data fetching
-            room = Room.objects.select_related('room_type', 'location').prefetch_related('amenities').get(pk=pk)
+        # Define the cache key for this specific room
+        cache_key = f'room_detail_{pk}'
 
-            serializer = RoomSerializer(room)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Room.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        # Try to retrieve the serialized room data from the cache
+        room_data = cache.get(cache_key)
 
+        if room_data is None:
+            # If the data is not in the cache, query the room from the database
+            room = self.queryset.filter(pk=pk).first()
+            
+            if not room:
+                # If the room does not exist, return a 404 Not Found response
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+            # Serialize the room data
+            serializer = self.get_serializer(room)
+            room_data = serializer.data
+
+            # Cache the serialized room data
+            cache.set(cache_key, room_data, timeout=300)
+
+        # Return the cached or freshly serialized room data
+        return Response(room_data, status=status.HTTP_200_OK)
 
 
 
@@ -373,12 +394,7 @@ class WishListAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
                 )
         
-        # # TODO Add permission classes
-        # if wishlist.user != request.user:
-        #     return Response(
-        #         {'error': 'Permission denied'}, 
-        #         status=status.HTTP_403_FORBIDDEN
-                # )
+        
 
         wishlist.delete()
         return Response(
@@ -394,78 +410,88 @@ class WishListAPIView(APIView):
         wishlists = WishList.objects.filter(user=user)
         serializer = WishListSerializer(wishlists, many=True)
         return Response(serializer.data)
-    
+
+from django.db.models import Prefetch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 class RoomListView(ListAPIView):
     """
-    This view is used to search and filter rooms
+    View for searching and filtering rooms.
     """
-    queryset = Room.objects.all()
     serializer_class = RoomSerializer
-    
-    # Specify filter backends
     filter_backends = [SearchFilter, DjangoFilterBackend]
-    
-    # Specify filter set class
     filterset_class = RoomFilter
-    
-    # Define searchable fields
-    search_fields = [
-        'location__city__name',
-        'location__country__name', 
-        'location__name'
-        ]
+    search_fields = ['location__city__name', 'location__country__name', 'location__name']
+    pagination_class = None  # Add pagination class if necessary
+
+    def get_queryset(self):
+        search_query = self.request.GET.get('search', '')
+        filter_params = self.request.query_params.dict()
+        # Generate a cache key based on search and filter parameters
+        cache_key = f"rooms_list_{search_query}_{filter_params}"
+
+        # Check cache for existing queryset
+        queryset = cache.get(cache_key)
+
+        if queryset is None:
+            # Get base queryset and apply select_related and prefetch_related for efficiency
+            base_queryset =Room.objects.select_related(
+                'location__city',
+                'location__country',
+                'category',
+                'room_type',
+                'bed_type'
+            ).prefetch_related(
+                'amenities'
+            )
+            # Filter the base queryset using the RoomFilter class
+            filtered_queryset = self.filter_queryset(base_queryset)
+
+            # Cache the filtered queryset with a timeout of 300 seconds (5 minutes)
+            cache.set(cache_key, filtered_queryset, timeout=300)
+
+            queryset = filtered_queryset
+
+        return queryset
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.get_queryset()
 
-        # Retrieve the search query from the request
-        search_query = request.GET.get('search', '')
-
-        # Check if there are any results in the queryset
+        # If no rooms found, return a custom 404 response
         if not queryset.exists():
-            # Return a custom message and HTTP 404 status if no results are found
             return Response({
-                'detail': f"Your search '{search_query}' did not match any rooms.",
+                'detail': f"Your search '{request.GET.get('search', '')}' did not match any rooms.",
                 'suggestions': [
-                    "Make sure that all words are spelled correctly.",
+                    "Make sure all words are spelled correctly.",
                     "Try different keywords.",
                     "Try more general keywords.",
                     "Try fewer keywords."
                 ]
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # If results are found, return the standard list response
+        # Use the default list handling for non-empty querysets
         return super().list(request, *args, **kwargs)
+ 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import Reservation, Room
-from .serializers import ReservationSerializer
+ 
 
 class ReservationCreateAPIView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsActiveUser]
     serializer_class = ReservationSerializer
 
     def perform_create(self, serializer):
@@ -491,11 +517,6 @@ class ReservationCreateAPIView(generics.CreateAPIView):
         context['room'] = room
         return context
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
 
 
 class BookingCancelAPIView(APIView):

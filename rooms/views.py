@@ -6,11 +6,12 @@ from .models import Room
 from .serializers import RoomSerializer
 from rest_framework.exceptions import NotFound
 from accounts.constants import *
+from accounts.permission import IsActiveUser
 class RoomCreateAPIView(APIView):
     """
     This view is used to create a room
     """
-    permission_classes = [IsAuthenticated]  # Only authenticated users can access
+    permission_classes = [IsActiveUser]  # Only authenticated users can access
 
     def post(self, request, format=None):
         if not request.user.is_vendor:  # Check if user is a vendor
@@ -29,18 +30,25 @@ class RoomCreateAPIView(APIView):
         return Response(serializer.errors, 
                         status=status.HTTP_400_BAD_REQUEST
                         )
-
+from accounts.permission import IsVendor
+from rest_framework.exceptions import PermissionDenied, NotFound
 class RoomDetailAPIView(APIView):
     """
-    This view is used to retrieve, update or delete a room
+    This view is used to retrieve, update, or delete a room.
     """
-    permission_classes = [IsAuthenticated]  # Only authenticated users can access
+    permission_classes = [IsVendor]  # Only vendors can access this view
 
     def get_object(self, pk):
         try:
-            return Room.objects.get(pk=pk)
+            room = Room.objects.get(pk=pk)
         except Room.DoesNotExist:
             raise NotFound("Room not found")
+
+        # Check if the requesting user is the creator of the room
+        if room.created_by != self.request.user:
+            raise PermissionDenied("You do not have permission to access this room.")
+
+        return room
 
     def get(self, request, pk):
         room = self.get_object(pk)
@@ -49,6 +57,7 @@ class RoomDetailAPIView(APIView):
 
     def put(self, request, pk):
         room = self.get_object(pk)
+
         serializer = RoomSerializer(room, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -57,15 +66,8 @@ class RoomDetailAPIView(APIView):
 
     def delete(self, request, pk):
         room = self.get_object(pk)
-
-        # Check permission (modify this as needed)
-        if not request.user.is_vendor :
-            return Response({'error': PERMISSION_DENIED}, \
-                            status=status.HTTP_403_FORBIDDEN
-                            )
-
         room.delete()
         return Response(
             {'message': f'Successfully deleted {room.name}.'}, 
             status=status.HTTP_204_NO_CONTENT
-            )
+        )

@@ -197,6 +197,7 @@ class VendorProfileSerializer(serializers.ModelSerializer):
         required=False, 
         allow_null=True
         )
+    
 
     class Meta:
         model = User

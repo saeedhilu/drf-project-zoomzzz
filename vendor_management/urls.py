@@ -10,6 +10,8 @@ from .views import (
     VendorProfileAPIView,
     ChangeEmailView,
     VerifyEmailChangeView,
+     DashboardView,
+     UserDetailaView
     # ChangePasswordEmailView
 )
 
@@ -24,5 +26,7 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),  # URL for regular password change
     path('change-email/', ChangeEmailView.as_view(), name='change-email'),  # URL for regular password change
     path('verify-email/', VerifyEmailChangeView.as_view(), name='verify-email'),  # URL for regular password change
+    path('vendor-dashboard/', DashboardView.as_view(), name='admin_dashboard'),
+    path('all-users/', UserDetailaView.as_view(), name='admin_dashboard'),
 
 ]

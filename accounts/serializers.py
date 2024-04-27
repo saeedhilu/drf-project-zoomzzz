@@ -43,10 +43,11 @@ class   UserProfileEditSerializer(serializers.ModelSerializer):
     """
     Serializer for editing user profile.
     """
-
+    is_active = serializers.BooleanField(read_only=True)
     class Meta:
         model = User
-        fields = ('username', 'email', 'phone_number', 'image')
+        fields = ('username', 'email', 'phone_number', 'image','is_active')
+        
 
     def validate_username(self, value):
         user = self.context['request'].user
@@ -106,28 +107,29 @@ class WishListSerializer(serializers.ModelSerializer):
 
 
 
-
-
-
-
 from rest_framework import serializers
 from datetime import date
-from .models import Reservation, Room
+from .models import Reservation, User, Room
 
 class ReservationSerializer(serializers.ModelSerializer):
+    # Define the new fields for user and room names
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    room_name = serializers.CharField(source='room.name', read_only=True)
+
+    # Existing fields in the ReservationSerializer
     check_in = serializers.DateField()
     check_out = serializers.DateField()
     total_guest = serializers.IntegerField()
     
     class Meta:
-        model =  Reservation
-        fields = ['check_in', 'check_out', 'total_guest']
+        model = Reservation
+        fields = ['check_in', 'check_out', 'total_guest', 'user_name', 'room_name']  # Add the new fields here
 
     def validate(self, data):
         # Retrieve room from context
         room = self.context.get('room')
         
-        # Retrieve check-in, check-out dates and total guests from data
+        # Retrieve check-in, check-out dates, and total guests from data
         check_in = data.get('check_in')
         check_out = data.get('check_out')
         total_guest = data.get('total_guest')
