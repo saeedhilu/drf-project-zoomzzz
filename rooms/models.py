@@ -88,20 +88,21 @@ class Room(models.Model):
 
     def get_absolute_url(self):
         return reverse('room-detail', kwargs={'pk': self.pk})
+    
 
     def __str__(self):
         return self.name
 
-from .models import Room
-from accounts.models import User
+# from .models import Room
+# from accounts.models import User
 
 
 
-"""
-££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££ here starting for start make rating
+# """
+# ££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££ here starting for start make rating
 
-"""
-class Rating(models.Model):
-    room = models.ForeignKey(Room, verbose_name=(""), on_delete=models.CASCADE)
-    user = models.ForeignKey(User, verbose_name=(""), on_delete=models.CASCADE)
-    rating = models.IntegerField(max_length=5)
+# """
+# class Rating(models.Model):
+#     room = models.ForeignKey(Room, verbose_name=(""), on_delete=models.CASCADE)
+#     user = models.ForeignKey(User, verbose_name=(""), on_delete=models.CASCADE)
+#     rating = models.IntegerField(max_length=5)

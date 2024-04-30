@@ -31,7 +31,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Example: Access token expires after 15 minutes
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Example: Access token expires after 15 minutes
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Example: Refresh token expires after 7 days
     'AUTH_HEADER_TYPES':('Bearer',),
 }
@@ -68,6 +68,13 @@ AUTHENTICATION_BACKENDS = (
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
+
+
+
+
+
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG =True

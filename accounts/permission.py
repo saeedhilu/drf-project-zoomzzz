@@ -18,7 +18,7 @@ class IsSuperUser(permissions.BasePermission):
     Custom permission class to allow access only to superusers.
     """
     def has_permission(self, request, view):
-        return request.user and request.user.is_superuserfrom 
+        return request.user and request.user.is_superuser
 
 class IsVendor(permissions.BasePermission):
     """
@@ -28,7 +28,10 @@ class IsVendor(permissions.BasePermission):
         # Check if the requesting user is authenticated and is a vendor
         return request.user.is_authenticated and request.user.is_vendor
     
-
+class IsOwner(permissions.BasePermission):
+    def has_object_permission(self, request, view):
+        # Check if the requesting user is the owner of the object
+        return request.booking.user == request.user
 
 # from rest_framework import permissions
 from rest_framework import permissions

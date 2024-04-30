@@ -12,8 +12,17 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-
-
+from rest_framework import generics
+from accounts.models import User
+from accounts.serializers import UserProfileEditSerializer
+from accounts.permission import IsSuperUser
+from rest_framework import generics
+from accounts.models import User
+from accounts.permission import IsVendor
+from datetime import timedelta
+from accounts.models import Reservation
+from accounts.serializers import ReservationSerializer
+from accounts.utils import get_vendor_summary_statistics
 from accounts.models import OTP, User
 from accounts.utils import (
     forgot_password_link,
@@ -95,7 +104,7 @@ class VenodrVerifyView(APIView):
         
         email        = request.session.get('email')
         otp_entered  = request.data.get('otp')
-       
+    
         print(email)
         print(otp_entered)
         
@@ -140,7 +149,7 @@ class VenodrVerifyView(APIView):
                         "last_name": user.last_name,
                         "phone_number": user.phone_number
                     },
-                    "message": "User signed up successfully as a vendor",
+                    "message": SIGNUP_SUCCESS,
                 }, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Invalid OTP or OTP expired'},
@@ -468,17 +477,7 @@ class VerifyEmailChangeView(APIView):
 
 
 
-
-
-
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.utils import timezone
-from datetime import timedelta
-from accounts.models import Reservation
-from accounts.serializers import ReservationSerializer
-from accounts.utils import get_vendor_summary_statistics
-
+# ###############################
 class DashboardView(APIView):
     """
     API view to provide recent bookings and summary statistics for the admin dashboard.
@@ -487,16 +486,21 @@ class DashboardView(APIView):
     def get(self, request):
         user = request.user
         print('user',user)
-        # Calculate recent bookings from the past 7 days
+        
         
         summary = get_vendor_summary_statistics(request.user)
         
-        recent_bookings = Reservation.objects.filter(room__created_by=user).select_related('user', 'room').order_by('-created_at')
-        print('recent booking ',recent_bookings)
+        recent_bookings = Reservation.objects.filter(
+            room__created_by=user).select_related(
+                'user', 'room'
+                ).order_by('-created_at')
+    
 
         
         # Serialize recent bookings
-        booking_serializer = ReservationSerializer(recent_bookings, many=True)
+        booking_serializer = ReservationSerializer(
+            recent_bookings, many=True
+            )
 
         # Return the response with recent bookings
         return Response({
@@ -507,15 +511,6 @@ class DashboardView(APIView):
 
 
 
-
-from rest_framework import generics
-from accounts.models import User
-from accounts.serializers import UserProfileEditSerializer
-from accounts.permission import IsSuperUser
-from rest_framework import generics
-from accounts.models import User
-from accounts.serializers import UserProfileEditSerializer
-from accounts.permission import IsVendor
 # from rooms.models import Reservation
 
 class UserDetailaView(generics.ListAPIView):
@@ -526,19 +521,12 @@ class UserDetailaView(generics.ListAPIView):
     permission_classes = [IsVendor]  
 
     def get_queryset(self):
-        # Get the requesting user (vendor)
         vendor = self.request.user
-
-        # Get the list of rooms created by the vendor
         vendor_rooms = vendor.created_rooms.all()
-
-        # Get the reservations for the vendor's rooms
         reservations = Reservation.objects.filter(room__in=vendor_rooms)
-
-        # Get the user IDs of the users who made the reservations
         user_ids = reservations.values_list('user', flat=True)
-
-        # Filter the queryset to include only users who have booked the vendor's rooms
         queryset = User.objects.filter(id__in=user_ids)
-
         return queryset
+
+
+

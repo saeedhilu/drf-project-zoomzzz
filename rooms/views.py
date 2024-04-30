@@ -32,6 +32,11 @@ class RoomCreateAPIView(APIView):
                         )
 from accounts.permission import IsVendor
 from rest_framework.exceptions import PermissionDenied, NotFound
+
+
+
+
+
 class RoomDetailAPIView(APIView):
     """
     This view is used to retrieve, update, or delete a room.
@@ -45,9 +50,7 @@ class RoomDetailAPIView(APIView):
             raise NotFound("Room not found")
 
         # Check if the requesting user is the creator of the room
-        if room.created_by != self.request.user:
-            raise PermissionDenied("You do not have permission to access this room.")
-
+        
         return room
 
     def get(self, request, pk):
@@ -71,3 +74,14 @@ class RoomDetailAPIView(APIView):
             {'message': f'Successfully deleted {room.name}.'}, 
             status=status.HTTP_204_NO_CONTENT
         )
+    
+class VendorRoomListAPIView(APIView):
+    """
+    This view is used to retrieve all rooms listed by the authenticated vendor.
+    """
+    permission_classes = [IsVendor]  # Only vendors can access this view
+
+    def get(self, request):
+        rooms = Room.objects.filter(created_by=request.user)
+        serializer = RoomSerializer(rooms, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

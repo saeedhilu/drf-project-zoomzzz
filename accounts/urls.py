@@ -14,7 +14,11 @@ from .views import (
     RoomListView,
     ReservationCreateAPIView,
     BookingCancelAPIView,
- 
+    InitiatePaymentAPIView,
+    RatingViewSet
+    # RatingListCreateAPIView,
+    # RatingRetrieveUpdateDestroyAPIView,
+
 )
 
 urlpatterns = [
@@ -32,9 +36,8 @@ urlpatterns = [
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
     path('reservations/<int:room_id>/', ReservationCreateAPIView.as_view(), name='create_reservation'),
     path('reservations/canellation/<int:pk>/', BookingCancelAPIView.as_view(), name='booking-cancel'),
-   
+    path('api/initiate_payment/', InitiatePaymentAPIView.as_view(), name='initiate_payment'),
+    path('rooms/<int:room_id>/ratings/create/', RatingViewSet.as_view(), name='rating-create'),
+    path('rooms/<int:room_id>/ratings/<int:pk>/', RatingViewSet.as_view(), name='rating-detail'),
     
-    
-#     # path('login/', LoginUserView.as_view(), name='login'),
-#     path('verify-email-otp/', VerifyEmailView.as_view(), name='verify_email_otp'),
 ]

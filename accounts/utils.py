@@ -342,21 +342,22 @@ from datetime import timedelta
 from .models import Reservation, User
 from django.db.models import Q
 def get_summary_statistics():
-    # Get total bookings
+
+    """
+    Total summary statics
+    """
+    
     total_bookings = Reservation.objects.count()
     
-    # Get total vendors
-    # Assuming vendors are stored in the User table with a field 'is_vendor' indicating vendor status
+    
     total_vendors = User.objects.filter(is_vendor=True).count()
     
-    # Calculate total check-ins
-    # Count bookings where the reservationstatus is 'pending'
+    
     total_check_ins = Reservation.objects.filter(
         Q(reservation_status='Pending') | Q(reservation_status='PENDING')
     ).count()
     
-    # Calculate total check-outs
-    # Count bookings where the reservationstatus is 'conformed'
+    
     total_check_outs = Reservation.objects.filter(
         Q(reservation_status='CONFIRMED') | Q(reservation_status='Confirmed')
     ).count()
@@ -368,7 +369,14 @@ def get_summary_statistics():
         'total_check_outs': total_check_outs,
     }
 
+
+
+
 def  get_vendor_summary_statistics(user_id):
+    """
+    Vendor summary statistics
+
+    """
     print('hello')
     try:
         # Get total bookings for the vendor

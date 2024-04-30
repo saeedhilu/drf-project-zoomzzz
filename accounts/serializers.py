@@ -8,6 +8,10 @@ from .mixins import PhoneNumberMixin
 from django.conf import settings
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
+from .constants import *
+from rest_framework import serializers
+from datetime import date
+from .models import Reservation, User, Room
 
 class GoogleSignSerializer(serializers.Serializer):
     access_token = serializers.CharField(min_length=5)
@@ -92,55 +96,44 @@ class WishListSerializer(serializers.ModelSerializer):
     class Meta:
         model = WishList
         fields = '__all__'
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-from rest_framework import serializers
-from datetime import date
-from .models import Reservation, User, Room
-
 class ReservationSerializer(serializers.ModelSerializer):
     # Define the new fields for user and room names
     user_name = serializers.CharField(source='user.username', read_only=True)
     room_name = serializers.CharField(source='room.name', read_only=True)
-
-    # Existing fields in the ReservationSerializer
     check_in = serializers.DateField()
     check_out = serializers.DateField()
     total_guest = serializers.IntegerField()
     
     class Meta:
         model = Reservation
-        fields = ['check_in', 'check_out', 'total_guest', 'user_name', 'room_name']  # Add the new fields here
+        fields = [
+                'id',
+                'check_in', 
+                'check_out', 
+                'total_guest',
+                'user_name', 
+                'room_name'
+                ]  # Add the new fields here
 
     def validate(self, data):
-        # Retrieve room from context
         room = self.context.get('room')
         
-        # Retrieve check-in, check-out dates, and total guests from data
+
         check_in = data.get('check_in')
         check_out = data.get('check_out')
         total_guest = data.get('total_guest')
 
         # Check date validity: check-in date must be before check-out date
         if check_in >= check_out:
-            raise serializers.ValidationError("Check-in date must be before check-out date.")
+            raise serializers.ValidationError(
+                CHECKING_MUST_GREATER
+                )
 
         # Check that check-in date is in the future
         if check_in < date.today():
-            raise serializers.ValidationError("Check-in date must be in the future.")
+            raise serializers.ValidationError(
+                CHECK_IN_MUST_FUTURE
+                )
         
         # Check guest count against room's max occupancy
         if room and total_guest > room.max_occupancy:
@@ -158,9 +151,58 @@ class ReservationSerializer(serializers.ModelSerializer):
         # Exclude the current booking if editing an existing booking
         if self.instance:
             overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
-        
+        overlapping_bookings = overlapping_bookings.exclude(reservation_status='Canceled')
         # If overlapping bookings exist, raise a validation error
         if overlapping_bookings.exists():
-            raise serializers.ValidationError("The room is already booked within the specified time range.")
+            raise serializers.ValidationError(
+                ROOM_ALREADY_BOOKED
+                )
+        return data
+
+
+
+
+
+
+
+from rest_framework import serializers
+from .models import Rating, Reservation
+from rooms.models import Room
+from django.core.exceptions import MultipleObjectsReturned
+from rest_framework import serializers
+from .models import Rating, Reservation
+from rooms.models import Room
+from django.core.exceptions import MultipleObjectsReturned
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        fields = ['id', 'user', 'room', 'rating', 'feedback', 'created_at']
+        read_only_fields = ['user', 'room', 'created_at']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        room_id = self.context['view'].kwargs.get('room_id')
+        
+        # Fetch the room instance
+        room = Room.objects.get(id=room_id)
+        instance = self.instance
+        existing_rating = Rating.objects.filter(user=user, room=room).first()
+    
+        if existing_rating:
+            if instance and instance == existing_rating:
+                pass
+            else:
+                raise serializers.ValidationError("You have already rated this room.")
+        try:
+            reservation = Reservation.objects.get(room=room, user=user, reservation_status='Confirmed')
+        except Reservation.DoesNotExist:
+            raise serializers.ValidationError("No confirmed reservation found for this user and room.")
+        except MultipleObjectsReturned:
+            raise serializers.ValidationError("Multiple reservations found for the same user and room.")
 
         return data
+
+        
+        
+

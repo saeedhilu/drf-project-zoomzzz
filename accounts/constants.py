@@ -15,7 +15,7 @@ INVALID_GOOGLE_ACCESS_TOKEN_ERROR = "Invalid Google access token"
 TOKEN_EXPIRED_ERROR = "This token is expired"
 USER_VERIFICATION_FAILED_ERROR = "Could not verify user"
 OTP_STILL_VALID = 'OTP resend is not allowed until the previous OTP expires.'
-
+SIGNUP_SUCCESS =   "User signed up successfully as a vendor"
 # Status Codes
 
 """
@@ -41,8 +41,14 @@ PERMISSION_DENIED = "You do not have permission to perform this action."
 
 
 
+# For room purpurse
+ROOM_ALREADY_BOOKED = "The room is already booked within the specified time range."
+CHECK_IN_MUST_FUTURE= "Check-in date must be in the future."
+CHECKING_MUST_GREATER="Check-in date must be before check-out date."
 
 
 
-
-
+# For Booking 
+BOOKING_NOT_CANCEL='Booking cannot be canceled as the 2-minute cancellation window has passed.'
+UNBLOCK_SUCCESS="User has been unblocked successfully."
+BLOCK_SUCCESS = "User has been blocked successfully."

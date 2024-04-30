@@ -6,13 +6,14 @@
 # #     list_filter = ('is_staff', 'is_superuser', 'is_active')
 # # admin.site.register(User, UserAdmin)
 from django.contrib import admin
-from .models import User,OTP,WishList,Reservation
+from accounts.models import User,OTP,WishList,Reservation,Rating
 class UserAdmin(admin.ModelAdmin):
     list_display = ['id','phone_number', 'username','first_name','last_name', 'date_joined', 'last_login', 'is_staff', 'is_superuser', 'is_active','email','is_vendor','password'] 
 class WhishListAdmin(admin.ModelAdmin):
     list_display = ['id','user','room','created_at']
 
-
+class RatingAdmin(admin.ModelAdmin):
+    list_display = ['id','user','room','rating','feedback']
 
 class ReservationAdmin(admin.ModelAdmin):
     list_display = (
@@ -54,3 +55,4 @@ admin.site.register(Reservation, ReservationAdmin)
 admin.site.register(User, UserAdmin)
 admin.site.register(OTP)
 admin.site.register(WishList,WhishListAdmin)
+admin.site.register(Rating,RatingAdmin)

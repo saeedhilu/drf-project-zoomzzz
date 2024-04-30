@@ -20,7 +20,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Reservation, Room
 from .permission import IsActiveUser
-
+import razorpay
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
@@ -413,20 +418,6 @@ class WishListAPIView(APIView):
 
 from django.db.models import Prefetch
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class RoomListView(ListAPIView):
     """
     View for searching and filtering rooms.
@@ -434,7 +425,11 @@ class RoomListView(ListAPIView):
     serializer_class = RoomSerializer
     filter_backends = [SearchFilter, DjangoFilterBackend]
     filterset_class = RoomFilter
-    search_fields = ['location__city__name', 'location__country__name', 'location__name']
+    search_fields = [
+        'location__city__name', 
+        'location__country__name', 
+        'location__name'
+        ]
     pagination_class = None  # Add pagination class if necessary
 
     def get_queryset(self):
@@ -484,51 +479,58 @@ class RoomListView(ListAPIView):
 
         # Use the default list handling for non-empty querysets
         return super().list(request, *args, **kwargs)
- 
 
-
-
- 
+# ##################
 
 class ReservationCreateAPIView(generics.CreateAPIView):
+    """
+    This view for Booking
+    """
     permission_classes = [IsActiveUser]
     serializer_class = ReservationSerializer
 
     def perform_create(self, serializer):
+
         room_id = self.kwargs.get('room_id')
         room = get_object_or_404(Room, id=room_id)
         user = self.request.user
-        print('request.user:', self.request.user)
         
         
-        # Calculate total price
         total_days = (serializer.validated_data['check_out'] - serializer.validated_data['check_in']).days
         total_price = total_days * room.price_per_night * serializer.validated_data['total_guest']
 
-        # Save the booking
-        serializer.save(user=self.request.user ,room=room, amount=total_price)
-
     
+        serializer.save(user=user, room=room, amount=total_price)
+
+        
+        room = Room.objects.filter(id=room_id, availability=True).first()
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # Include the room instance in the serializer context
+
         room_id = self.kwargs.get('room_id')
         room = get_object_or_404(Room, id=room_id)
         context['room'] = room
         return context
+    
 
-
-
+from django.utils import timezone
 class BookingCancelAPIView(APIView):
+    """
+    This View for Cancel Booking with in two minutes
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        # Fetch the booking
-        booking = get_object_or_404(Reservation, pk=pk)
+        # Fetch the booking along with the related user object
+        booking = Reservation.objects.select_related('user').get(pk=pk)
         
         # Ensure the user making the request is the owner of the booking
         if booking.user != request.user:
-            return Response({'status': 'error', 'message': 'You do not have permission to cancel this booking.'}, status=403)
+            return Response(
+                {'status': 'error', 'message': PERMISSION_DENIED}, 
+                status=403
+            )
         
         # Calculate the time difference between the current time and booking creation time
         time_difference = timezone.now() - booking.created_at
@@ -536,11 +538,144 @@ class BookingCancelAPIView(APIView):
         # Check if the 2-minute cancellation window has passed
         two_minutes_in_seconds = 2 * 60
         if time_difference.total_seconds() > two_minutes_in_seconds:
-            return Response({'status': 'error', 'message': 'Booking cannot be canceled as the 2-minute cancellation window has passed.'}, status=400)
+            return Response(
+                {'status': 'error', 'message': BOOKING_NOT_CANCEL}, 
+                status=400
+            )
         
-        # Attempt to cancel the booking
+        
         booking.is_active = False
-        booking.reservation_status = 'CANCELED'
+        booking.reservation_status = 'Canceled'
         booking.save()
         
-        return Response({'status': 'success', 'message': 'Booking canceled successfully.'})
+        
+        room = booking.room
+        room.availability = True  
+        room.save(update_fields=['availability'])
+        
+        return Response(
+            {'status': 'success', 'message': SUCCESS_MESSAGE}
+        )
+
+
+
+
+
+
+
+
+
+class InitiatePaymentAPIView(APIView):
+    
+    def post(self, request):
+        # Retrieve payment details from POST request data
+        amount = int(request.data.get('amount', 0))  # Amount in paisa (₹500.00)
+        currency = 'INR'
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+        # Create Razorpay order
+        order_data = {
+            'amount': amount,
+            'currency': currency,
+            'payment_capture': '1'
+        }
+        razorpay_order = client.order.create(data=order_data)
+
+        # Return order ID and other details to frontend or client
+        return Response({
+            'order_id': razorpay_order['id'],
+            'amount': razorpay_order['amount'],
+            'currency': razorpay_order['currency'],
+            'key_id': settings.RAZORPAY_KEY_ID,
+        })
+
+    def get(self, request):
+        return Response({'error': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import Rating, Reservation
+from .serializers import RatingSerializer
+from django.core.exceptions import MultipleObjectsReturned
+
+from rest_framework import serializers
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from .models import Rating
+from .serializers import RatingSerializer
+
+from django.shortcuts import get_object_or_404
+from rooms.models import Room
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, DestroyModelMixin
+from .models import Rating
+from .serializers import RatingSerializer
+
+class RatingViewSet(generics.GenericAPIView, CreateModelMixin, UpdateModelMixin, DestroyModelMixin):
+    serializer_class = RatingSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Rating.objects.all()  # Queryset to handle the ratings
+
+    def perform_create(self, serializer):
+        room_id = self.kwargs.get('room_id')
+        user = self.request.user
+        # Fetch the room instance (assuming Room model)
+        room = get_object_or_404(Room, id=room_id)
+        # Save the rating with the provided user and room
+        serializer.save(user=user, room=room)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#         # Check if there exists a confirmed reservation for the user and room
+#         try:
+#             reservation = Reservation.objects.get(room_id=room_id, user=user, reservation_status='Confirmed')
+#             print("Reservation:", reservation)
+#         except Reservation.DoesNotExist:
+#             print("No confirmed reservation found.")
+#             return Response('Validation error ')
+#         except MultipleObjectsReturned:
+#             print("Multiple reservations found for the same user and room.")
+#             return Response('thsi is the error')
+#         except Exception as e:
+#             print("An error occurred:", str(e))
+#             raise serializers.ValidationError("An error occurred while processing your request.")
+        
+#         serializer.save(user=user, room_id=room_id)
+

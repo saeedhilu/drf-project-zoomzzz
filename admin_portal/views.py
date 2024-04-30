@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from .serializers import SuperAdminLoginSerializer
 from .serializers import *
-
+from accounts.constants import *
 from accounts.constants import PERMISSION_DENIED
 from rest_framework import generics
 from rest_framework.response import Response
@@ -173,7 +173,7 @@ class AddCountry(AbstractCRUDView):
 
 
 
-
+# ########################
 
 class AdminRoomListingView(generics.ListAPIView):
 
@@ -183,87 +183,86 @@ class AdminRoomListingView(generics.ListAPIView):
     """
     queryset = cache_queryset(
         'allrooms',
-        Room.objects.select_related('category', 'room_type', 'bed_type', 'location__city', 'location__country')
+        Room.objects.select_related(
+            'category', #
+            'room_type', 
+            'bed_type', 
+            'location__city', 
+            'location__country'
+            )
         .prefetch_related('amenities')
         .only(
-            'id', 'name', 'description', 'price_per_night', 'max_occupancy', 'availability',
-            'pet_allowed', 'image', 'created_by', 'created_at',
-            'category__name', 'room_type__name', 'bed_type__name',
-            'location__name', 'location__city__name', 'location__country__name'
+            'id', 'name', 'description', 
+            'price_per_night', 'max_occupancy', 
+            'availability','pet_allowed', 'image',
+            'created_by', 'created_at',
+            'category__name', 'room_type__name', 
+            'bed_type__name','location__name', 
+            'location__city__name', 'location__country__name'
         ),
         timeout=300
     )
 
-    # Specify the serializer class
+
     serializer_class = RoomSerializer
     
     def list(self, request, *args, **kwargs):
-    # Use the default list method to retrieve the room data with pagination
+
         response = super().list(request, *args, **kwargs)
         
-        # Retrieve summary statistics
+
         summary_statistics = get_summary_statistics()
         
-        # Combine the rooms data and summary statistics in a single response
+        
         custom_response_data = {
 
             'summary_statistics': summary_statistics,
             'rooms': response.data,
         }
         
-        # Return the combined response
+        
         return Response(custom_response_data)
 
-
-
-
-
-
-
-
-
+from django.core.cache import cache
+from rest_framework import generics
 
 
 
 class VebdorsListView(generics.ListAPIView):
     """
-    This view for listing all Vendors on Admin dashbaord
+    This view for listing all Vendors on Admin dashboard
     """
-    queryset = User.objects.filter(is_vendor=True)
-    serializer_class = VendorProfileSerializer
+    serializer_class = VendorProfileSerializer  # Add serializer_class attribute
     permission_classes = [IsSuperUser]
 
-    
+    def get_queryset(self):
+        queryset_cache_key = 'vendor_queryset'
+        queryset = cache.get(queryset_cache_key)
+
+        if queryset is None:
+            queryset = User.objects.filter(is_vendor=True)
+            cache.set(queryset_cache_key, queryset, timeout=300)  # Cache for 5 minutes
+
+        return queryset
 
 
 class UserDetailaView(generics.ListAPIView):
     """
-    This view for listing all Users details on Admin dashbaord
+    This view for listing all Users details on Admin dashboard
     """
-    queryset = User.objects.all()
     serializer_class = UserProfileEditSerializer
     permission_classes = [IsSuperUser]
 
+    def get_queryset(self):
+        queryset_cache_key = 'user_queryset'
+        queryset = cache.get(queryset_cache_key)
 
+        if queryset is None:
+            queryset = User.objects.all()
+            cache.set(queryset_cache_key, queryset, timeout=300)  # Cache for 5 minutes
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return queryset
+    
 class UserBlockUnblockView(generics.GenericAPIView):
     serializer_class = UserProfileEditSerializer
     permission_classes = [IsSuperUser]  # Only allow access to admin users
@@ -272,20 +271,20 @@ class UserBlockUnblockView(generics.GenericAPIView):
         # Get the user object based on the provided primary key (user ID)
         user = get_object_or_404(User, pk=pk)
 
-        # Check the current status of the user
+        
         is_active = user.is_active
         print(user)
 
         # Toggle the is_active field (block/unblock the user)
         user.is_active = not is_active
-        user.save()
+        user.save(update_fields=['is_active'])
 
         # Return the updated user data
         serializer = self.serializer_class(user)
         if not is_active:
-            message = "User has been unblocked successfully."
+            message = UNBLOCK_SUCCESS
         else:
-            message = "User has been blocked successfully."
+            message = BLOCK_SUCCESS
 
         return Response({
             'message': message,
