@@ -204,5 +204,16 @@ class RatingSerializer(serializers.ModelSerializer):
         return data
 
         
-        
+from rest_framework import serializers
+from .models import Room
 
+class TopRatedSerializer(serializers.ModelSerializer):
+    # Fields to hold the average rating and count of ratings
+    average_rating = serializers.FloatField(read_only=True)
+    
+    class Meta:
+        model = Room
+        fields = [
+            'id', 'name', 'location', 'average_rating', 'price_per_night', 'image'
+        ]
+        depth = 1  # This setting enables nested serialization for related fields

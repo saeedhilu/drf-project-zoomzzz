@@ -15,7 +15,8 @@ from .views import (
     ReservationCreateAPIView,
     BookingCancelAPIView,
     InitiatePaymentAPIView,
-    RatingViewSet
+    RatingViewSet,
+    TopRatedRoomListAPIView
     # RatingListCreateAPIView,
     # RatingRetrieveUpdateDestroyAPIView,
 
@@ -39,5 +40,5 @@ urlpatterns = [
     path('api/initiate_payment/', InitiatePaymentAPIView.as_view(), name='initiate_payment'),
     path('rooms/<int:room_id>/ratings/create/', RatingViewSet.as_view(), name='rating-create'),
     path('rooms/<int:room_id>/ratings/<int:pk>/', RatingViewSet.as_view(), name='rating-detail'),
-    
+    path('rooms/top-rated/', TopRatedRoomListAPIView.as_view(), name='top-rated-rooms'),
 ]

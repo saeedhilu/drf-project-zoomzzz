@@ -29,6 +29,7 @@ class RoomSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'location', 'category', 'description', 'price_per_night',
                     'max_occupancy', 'image', 'availability', 'pet_allowed', 'room_type', 'bed_type',
                     'amenities', 'created_by', 'created_at')
+    
 
     def create(self, validated_data):
         location_data = validated_data.pop('location')

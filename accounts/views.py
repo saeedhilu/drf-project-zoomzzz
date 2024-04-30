@@ -28,16 +28,25 @@ from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-
-
+from django.db.models import Avg,Count
 from .serializers import (
     GenerateOTPSerializer,
     GoogleSignSerializer,
     UserProfileEditSerializer,
     ChangePhoneNumberSerializer,
     ReservationSerializer,
-    WishListSerializer
+    WishListSerializer,
+    TopRatedSerializer
+
     )
+from .utils import cache_queryset
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.generics import RetrieveAPIView
+from django.core.cache import cache
+from .models import Room, Rating
+from .serializers import RoomSerializer, RatingSerializer
+from django.db.models import Avg
 from .constants import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
@@ -51,6 +60,26 @@ from .utils import (
     )   
 
 
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import Rating, Reservation
+from .serializers import RatingSerializer
+from django.core.exceptions import MultipleObjectsReturned
+
+from rest_framework import serializers
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from .models import Rating
+from .serializers import RatingSerializer
+
+from django.shortcuts import get_object_or_404
+from rooms.models import Room
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, DestroyModelMixin
+from .models import Rating
+from .serializers import RatingSerializer
 
 
 
@@ -123,7 +152,7 @@ class GenerateOTPView(APIView):
                     )
         except Exception as e:
             return Response(
-                {'error': f'Failed to generate/send OTP. Exception: {str(e)}'},
+                {'error': f'FAIL_GENERATE: {str(e)}'},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR
                             )
 
@@ -172,6 +201,10 @@ class VerifyOTPView(APIView):
                 )
 
 
+
+
+
+
 class ResendOTPView(APIView):
     """
     API endpoint to resend OTP via SMS for user registration.
@@ -194,7 +227,6 @@ class ResendOTPView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         
-
 
 class UserProfileEditAPIView(APIView):
     """
@@ -230,6 +262,7 @@ class UserProfileEditAPIView(APIView):
             return Response({'error': 'Authentication failed'}, 
                             status=status.HTTP_401_UNAUTHORIZED)
 
+
 class ChangePhoneNumberView(APIView):
     """
     API endpoint for changing phone number.
@@ -257,7 +290,9 @@ class ChangePhoneNumberView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-# views.py
+
+
+
 
 class VerifyChangePhoneNumberView(APIView):
     """
@@ -284,7 +319,8 @@ class VerifyChangePhoneNumberView(APIView):
             return Response({'error': message}, 
                             status=status.HTTP_400_BAD_REQUEST)
 
-from .utils import cache_queryset
+
+
 
 class AllRoomsView(APIView):
     """
@@ -302,38 +338,92 @@ class AllRoomsView(APIView):
         
         serializer = RoomSerializer(rooms, many=True)
         return Response(serializer.data)
+    
+
 
 class RoomDetailAPIView(RetrieveAPIView):
     """
     API view for retrieving the details of a selected room.
     """
-    queryset = Room.objects.select_related('room_type', 'location').prefetch_related('amenities')
+    queryset = Room.objects.select_related(
+        'room_type', 
+        'location'
+        ).prefetch_related(
+            'amenities'
+            )
     serializer_class = RoomSerializer
 
-    def get(self, request, pk):
-        # Define the cache key for this specific room
-        cache_key = f'room_detail_{pk}'
+    def get_average_rating(self, room):
+    
+        average_rating = Rating.objects.filter(
+            room=room
+            ).aggregate(
+                average=Avg('rating'))
+        return average_rating['average']
 
-        # Try to retrieve the serialized room data from the cache
+    def get_user_feedbacks(self, room):
+    
+        ratings = Rating.objects.filter(room=room)
+        serializer = RatingSerializer(ratings, many=True)
+        return serializer.data
+
+    def get(self, request, pk):  
+        
+        cache_key = f'room_detail_{pk}'    
         room_data = cache.get(cache_key)
-
         if room_data is None:
-            # If the data is not in the cache, query the room from the database
             room = self.queryset.filter(pk=pk).first()
-            
             if not room:
-                # If the room does not exist, return a 404 Not Found response
                 return Response(status=status.HTTP_404_NOT_FOUND)
+            average_rating = self.get_average_rating(room)
 
-            # Serialize the room data
+            user_feedbacks = self.get_user_feedbacks(room)
             serializer = self.get_serializer(room)
             room_data = serializer.data
-
-            # Cache the serialized room data
+            room_data['average_rating'] = average_rating
+            room_data['user_feedbacks'] = user_feedbacks
             cache.set(cache_key, room_data, timeout=300)
 
-        # Return the cached or freshly serialized room data
         return Response(room_data, status=status.HTTP_200_OK)
+
+
+
+
+
+class TopRatedRoomListAPIView(generics.ListAPIView):
+    """
+    This View For  top rated rooms
+    """
+    serializer_class = TopRatedSerializer
+
+    def get_queryset(self):
+        cache_key = 'top_rated_rooms_list'
+
+        queryset = cache.get(cache_key)
+        
+        if queryset is None:
+            
+            queryset = Room.objects.annotate(
+                average_rating=Avg('rating__rating')
+            ).filter(
+                average_rating__isnull=False
+            ).order_by('-average_rating')[:5]
+            
+            queryset = queryset.select_related('location').only(
+                'id',
+                'name',
+                'price_per_night',
+                'image',
+                'location__name',
+                'location__city',
+                'location__country'
+            )
+            
+            cache_queryset(cache_key, queryset,timeout=300)  # Cache for 15 minutes (900 seconds)
+        
+        return queryset
+
+
 
 
 
@@ -356,9 +446,7 @@ class WishListAPIView(APIView):
                 )
 
         try:
-            # Ensure room_id is converted to int
             room_id = int(room_id)
-            # Check if the room exists
             room = Room.objects.get(pk=room_id)
         except (ValueError, Room.DoesNotExist):
             return Response(
@@ -367,7 +455,6 @@ class WishListAPIView(APIView):
                 )
 
         user = request.user
-        # Check if the wishlist already contains the room
         existing_wishlist = WishList.objects.filter(
             user=user, 
             room_id=room_id
@@ -416,7 +503,11 @@ class WishListAPIView(APIView):
         serializer = WishListSerializer(wishlists, many=True)
         return Response(serializer.data)
 
-from django.db.models import Prefetch
+
+
+
+
+
 
 class RoomListView(ListAPIView):
     """
@@ -558,13 +649,6 @@ class BookingCancelAPIView(APIView):
         )
 
 
-
-
-
-
-
-
-
 class InitiatePaymentAPIView(APIView):
     
     def post(self, request):
@@ -591,43 +675,14 @@ class InitiatePaymentAPIView(APIView):
         })
 
     def get(self, request):
-        return Response({'error': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(
+            {'error': 'Method not allowed'}, 
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .models import Rating, Reservation
-from .serializers import RatingSerializer
-from django.core.exceptions import MultipleObjectsReturned
-
-from rest_framework import serializers
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from .models import Rating
-from .serializers import RatingSerializer
-
-from django.shortcuts import get_object_or_404
-from rooms.models import Room
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, DestroyModelMixin
-from .models import Rating
-from .serializers import RatingSerializer
 
 class RatingViewSet(generics.GenericAPIView, CreateModelMixin, UpdateModelMixin, DestroyModelMixin):
     serializer_class = RatingSerializer
@@ -661,21 +716,4 @@ class RatingViewSet(generics.GenericAPIView, CreateModelMixin, UpdateModelMixin,
 
 
 
-
-
-#         # Check if there exists a confirmed reservation for the user and room
-#         try:
-#             reservation = Reservation.objects.get(room_id=room_id, user=user, reservation_status='Confirmed')
-#             print("Reservation:", reservation)
-#         except Reservation.DoesNotExist:
-#             print("No confirmed reservation found.")
-#             return Response('Validation error ')
-#         except MultipleObjectsReturned:
-#             print("Multiple reservations found for the same user and room.")
-#             return Response('thsi is the error')
-#         except Exception as e:
-#             print("An error occurred:", str(e))
-#             raise serializers.ValidationError("An error occurred while processing your request.")
-        
-#         serializer.save(user=user, room_id=room_id)
 

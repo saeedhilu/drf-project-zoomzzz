@@ -52,3 +52,10 @@ CHECKING_MUST_GREATER="Check-in date must be before check-out date."
 BOOKING_NOT_CANCEL='Booking cannot be canceled as the 2-minute cancellation window has passed.'
 UNBLOCK_SUCCESS="User has been unblocked successfully."
 BLOCK_SUCCESS = "User has been blocked successfully."
+
+
+
+
+
+# $$$$$$$$$$$$$$$$$$$$$$$
+FAIL_GENERATE = 'Failed to generate/send OTP. Exception'

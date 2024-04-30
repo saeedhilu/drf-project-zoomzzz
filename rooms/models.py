@@ -67,8 +67,8 @@ class Amenity(models.Model):
 
 
 
-
-
+from django.db.models import Avg
+from django.apps import apps
 
 class Room(models.Model):
     name = models.CharField(max_length=100)
@@ -88,21 +88,12 @@ class Room(models.Model):
 
     def get_absolute_url(self):
         return reverse('room-detail', kwargs={'pk': self.pk})
-    
+    def get_average_rating(self):
+        # Calculate the average rating for this room
+        Rating = apps.get_model('accounts', 'Rating')
 
+        average_rating = Rating.objects.filter(room=self).aggregate(average=Avg('rating'))
+        return average_rating['average']
+    
     def __str__(self):
         return self.name
-
-# from .models import Room
-# from accounts.models import User
-
-
-
-# """
-# ££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££ here starting for start make rating
-
-# """
-# class Rating(models.Model):
-#     room = models.ForeignKey(Room, verbose_name=(""), on_delete=models.CASCADE)
-#     user = models.ForeignKey(User, verbose_name=(""), on_delete=models.CASCADE)
-#     rating = models.IntegerField(max_length=5)
