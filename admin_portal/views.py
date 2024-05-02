@@ -15,7 +15,7 @@ from rooms.models import Room
 from rooms.serializers import RoomSerializer
 from accounts.utils import cache_queryset, get_summary_statistics
 from vendor_management.serializers import VendorProfileSerializer
-from accounts.serializers import UserProfileEditSerializer
+from accounts.serializers import UserProfileEditSerializer,BlockAndUnblockSerializer
 from .serializers import UserBlockUnblockSerializer
 from rest_framework import status, generics
 from django.shortcuts import get_object_or_404
@@ -207,15 +207,9 @@ class AdminRoomListingView(generics.ListAPIView):
     serializer_class = RoomSerializer
     
     def list(self, request, *args, **kwargs):
-
         response = super().list(request, *args, **kwargs)
-        
-
         summary_statistics = get_summary_statistics()
-        
-        
         custom_response_data = {
-
             'summary_statistics': summary_statistics,
             'rooms': response.data,
         }
@@ -263,8 +257,15 @@ class UserDetailaView(generics.ListAPIView):
 
         return queryset
     
+
+
+    
 class UserBlockUnblockView(generics.GenericAPIView):
-    serializer_class = UserProfileEditSerializer
+
+    """
+    This view for block/unblock user on Admin dashboard
+    """
+    serializer_class = BlockAndUnblockSerializer
     permission_classes = [IsSuperUser]  # Only allow access to admin users
 
     def post(self, request, pk):
@@ -287,8 +288,7 @@ class UserBlockUnblockView(generics.GenericAPIView):
             message = BLOCK_SUCCESS
 
         return Response({
-            'message': message,
-            'user': serializer.data
+            'message': message
         }, status=status.HTTP_200_OK)
 
 

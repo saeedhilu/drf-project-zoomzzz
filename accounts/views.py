@@ -311,8 +311,8 @@ class VerifyChangePhoneNumberView(APIView):
 
         if is_valid:
             user.phone_number = phone_number
-            user.save()
-            # get
+            user.save(update_field='phone_number')
+        
             return Response({'message': PHONE_SUCCESS}, 
                             status=status.HTTP_200_OK)
         else:
@@ -499,8 +499,14 @@ class WishListAPIView(APIView):
         Retrieves the authenticated user's wish list items.
         """
         user = request.user
-        wishlists = WishList.objects.filter(user=user)
-        serializer = WishListSerializer(wishlists, many=True)
+
+        
+        cache_key = f"user_wishlists"
+    
+        cached_wishlists = cache_queryset(cache_key, WishList.objects.select_related('room', 'room__location').filter(user=user))
+
+        serializer = WishListSerializer(cached_wishlists, many=True)
+        
         return Response(serializer.data)
 
 
@@ -526,14 +532,11 @@ class RoomListView(ListAPIView):
     def get_queryset(self):
         search_query = self.request.GET.get('search', '')
         filter_params = self.request.query_params.dict()
-        # Generate a cache key based on search and filter parameters
         cache_key = f"rooms_list_{search_query}_{filter_params}"
 
-        # Check cache for existing queryset
         queryset = cache.get(cache_key)
 
         if queryset is None:
-            # Get base queryset and apply select_related and prefetch_related for efficiency
             base_queryset =Room.objects.select_related(
                 'location__city',
                 'location__country',
@@ -543,10 +546,8 @@ class RoomListView(ListAPIView):
             ).prefetch_related(
                 'amenities'
             )
-            # Filter the base queryset using the RoomFilter class
             filtered_queryset = self.filter_queryset(base_queryset)
 
-            # Cache the filtered queryset with a timeout of 300 seconds (5 minutes)
             cache.set(cache_key, filtered_queryset, timeout=300)
 
             queryset = filtered_queryset
@@ -573,7 +574,7 @@ class RoomListView(ListAPIView):
 
 # ##################
 
-class ReservationCreateAPIView(generics.CreateAPIView):
+class BookingCreate(generics.CreateAPIView):
     """
     This view for Booking
     """
@@ -581,28 +582,28 @@ class ReservationCreateAPIView(generics.CreateAPIView):
     serializer_class = ReservationSerializer
 
     def perform_create(self, serializer):
-
         room_id = self.kwargs.get('room_id')
         room = get_object_or_404(Room, id=room_id)
         user = self.request.user
-        
-        
+
         total_days = (serializer.validated_data['check_out'] - serializer.validated_data['check_in']).days
         total_price = total_days * room.price_per_night * serializer.validated_data['total_guest']
 
-    
         serializer.save(user=user, room=room, amount=total_price)
-
-        
-        room = Room.objects.filter(id=room_id, availability=True).first()
-
     def get_serializer_context(self):
+
+        """For taking room for checking already excist"""
         context = super().get_serializer_context()
 
         room_id = self.kwargs.get('room_id')
         room = get_object_or_404(Room, id=room_id)
         context['room'] = room
         return context
+        
+
+    
+
+    
     
 
 from django.utils import timezone
@@ -622,11 +623,8 @@ class BookingCancelAPIView(APIView):
                 {'status': 'error', 'message': PERMISSION_DENIED}, 
                 status=403
             )
-        
-        # Calculate the time difference between the current time and booking creation time
         time_difference = timezone.now() - booking.created_at
         
-        # Check if the 2-minute cancellation window has passed
         two_minutes_in_seconds = 2 * 60
         if time_difference.total_seconds() > two_minutes_in_seconds:
             return Response(
@@ -717,3 +715,42 @@ class RatingViewSet(generics.GenericAPIView, CreateModelMixin, UpdateModelMixin,
 
 
 
+
+
+
+from rest_framework import generics
+from rest_framework.response import Response
+from .models import Reservation
+from .serializers import ReservationSerializer
+
+class UserCanceledRooms(generics.ListAPIView):
+    """
+    This view returns all canceled rooms for the authenticated user.
+    """
+    serializer_class = ReservationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Reservation.objects.filter(user=self.request.user, reservation_status='Canceled')
+
+
+class UserConfirmedRooms(generics.ListAPIView):
+    """
+    This view returns all confirmed rooms for the authenticated user.
+    """
+    serializer_class = ReservationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Reservation.objects.filter(user=self.request.user, reservation_status='Confirmed')
+
+
+class UserPendingRooms(generics.ListAPIView):
+    """
+    This view returns all pending rooms for the authenticated user.
+    """
+    serializer_class = ReservationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Reservation.objects.filter(user=self.request.user, reservation_status='Pending')

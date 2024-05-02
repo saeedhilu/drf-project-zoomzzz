@@ -20,7 +20,6 @@
 #         pass
 # from celery import shared_task
 # from .models import Booking
-# from datetime import datetime
 
 # @shared_task
 # def update_booking_status():
@@ -33,3 +32,20 @@
 #     for booking in pending_bookings:
 #         booking.status = 'confirmed'
 #         booking.save()
+
+
+
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from pytz import timezone
+from .models import Reservation
+
+@receiver(post_save, sender=Reservation)
+def update_reservation_status(sender, instance, created, **kwargs):
+    if not created:  # Only update on existing reservations
+        today = timezone.now().date()
+        if instance.checkout_date and instance.checkout_date <= today:
+            instance.reservation_status = 'Confirmed'
+            instance.save()
+

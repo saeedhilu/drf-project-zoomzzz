@@ -13,6 +13,18 @@ from rest_framework import serializers
 from datetime import date
 from .models import Reservation, User, Room
 
+
+
+
+
+from rest_framework import serializers
+from .models import Rating, Reservation
+from rooms.models import Room
+from django.core.exceptions import MultipleObjectsReturned
+from rest_framework import serializers
+from .models import Rating, Reservation
+from rooms.models import Room
+from django.core.exceptions import MultipleObjectsReturned
 class GoogleSignSerializer(serializers.Serializer):
     access_token = serializers.CharField(min_length=5)
 
@@ -87,92 +99,108 @@ class ChangePhoneNumberSerializer(
 
 
 
-from .models import WishList
-from rooms.serializers import RoomSerializer   
 
-class WishListSerializer(serializers.ModelSerializer):
-    room = RoomSerializer(read_only=True)  # Nested serialization
 
-    class Meta:
-        model = WishList
-        fields = '__all__'
+# from email_validator import validate_email, EmailNotValidError
+# import phonenumbers
+from rest_framework import serializers
+from django.utils import timezone
+from .models import Reservation
+from email_validator import validate_email, EmailNotValidError
+import phonenumbers
+
+
+
+from rest_framework import serializers
+from django.core.exceptions import ValidationError
+from .models import Reservation
+from email_validator import validate_email, EmailNotValidError
+import phonenumbers
+from django.utils import timezone
+
 class ReservationSerializer(serializers.ModelSerializer):
-    # Define the new fields for user and room names
     user_name = serializers.CharField(source='user.username', read_only=True)
     room_name = serializers.CharField(source='room.name', read_only=True)
     check_in = serializers.DateField()
     check_out = serializers.DateField()
     total_guest = serializers.IntegerField()
+    first_name = serializers.CharField(max_length=30)
+    last_name = serializers.CharField(max_length=30)
+    email = serializers.EmailField()
+    contact_number = serializers.CharField(max_length=15)
     
     class Meta:
         model = Reservation
         fields = [
-                'id',
-                'check_in', 
-                'check_out', 
-                'total_guest',
-                'user_name', 
-                'room_name'
-                ]  # Add the new fields here
-
+            'id',
+            'check_in', 
+            'check_out', 
+            'total_guest',
+            'user_name', 
+            'room_name',
+            'first_name',
+            'last_name',
+            'email',
+            'contact_number',
+        ] 
+    
     def validate(self, data):
         room = self.context.get('room')
         
-
         check_in = data.get('check_in')
         check_out = data.get('check_out')
         total_guest = data.get('total_guest')
+        email = data.get('email')
+        contact_number = data.get('contact_number')
 
         # Check date validity: check-in date must be before check-out date
         if check_in >= check_out:
-            raise serializers.ValidationError(
-                CHECKING_MUST_GREATER
-                )
+            raise serializers.ValidationError('Check-in date must be before check-out date.')
 
         # Check that check-in date is in the future
-        if check_in < date.today():
-            raise serializers.ValidationError(
-                CHECK_IN_MUST_FUTURE
-                )
-        
+        if check_in < timezone.now().date():
+            raise serializers.ValidationError('Check-in date must be in the future.')
+
         # Check guest count against room's max occupancy
         if room and total_guest > room.max_occupancy:
             raise serializers.ValidationError(
                 f"The room can only accommodate up to {room.max_occupancy} guests, but you requested {total_guest} guests."
             )
 
+        # Validate email address
+        try:
+            validate_email(email)
+        except EmailNotValidError:
+            raise serializers.ValidationError('Invalid email address.')
+
+        # Validate contact number
+        try:
+            parsed_number = phonenumbers.parse(contact_number, None)
+            if not phonenumbers.is_valid_number(parsed_number):
+                raise serializers.ValidationError('Invalid phone number.')
+        except phonenumbers.phonenumberutil.NumberParseException:
+            raise serializers.ValidationError('Invalid phone number.')
+        print('room is ',room)
+        print('check_in date is ',check_in)
+
         # Check for overlapping bookings
         overlapping_bookings = Reservation.objects.filter(
             room=room,
-            check_in__lt=check_out,
-            check_out__gt=check_in
-        )
+            check_in__lte=check_out,
+            check_out__gte=check_in
+        ).exclude(reservation_status='Canceled')
+        print(overlapping_bookings)
 
-        # Exclude the current booking if editing an existing booking
         if self.instance:
             overlapping_bookings = overlapping_bookings.exclude(pk=self.instance.pk)
-        overlapping_bookings = overlapping_bookings.exclude(reservation_status='Canceled')
-        # If overlapping bookings exist, raise a validation error
+
         if overlapping_bookings.exists():
-            raise serializers.ValidationError(
-                ROOM_ALREADY_BOOKED
-                )
+            raise serializers.ValidationError('Room is already booked for the selected dates.')
+
         return data
 
 
 
-
-
-
-
-from rest_framework import serializers
-from .models import Rating, Reservation
-from rooms.models import Room
-from django.core.exceptions import MultipleObjectsReturned
-from rest_framework import serializers
-from .models import Rating, Reservation
-from rooms.models import Room
-from django.core.exceptions import MultipleObjectsReturned
 
 class RatingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -204,8 +232,12 @@ class RatingSerializer(serializers.ModelSerializer):
         return data
 
         
-from rest_framework import serializers
-from .models import Room
+
+
+
+
+
+
 
 class TopRatedSerializer(serializers.ModelSerializer):
     # Fields to hold the average rating and count of ratings
@@ -217,3 +249,20 @@ class TopRatedSerializer(serializers.ModelSerializer):
             'id', 'name', 'location', 'average_rating', 'price_per_night', 'image'
         ]
         depth = 1  # This setting enables nested serialization for related fields
+
+from .models import WishList
+from rooms.serializers import RoomSerializer   
+
+class WishListSerializer(serializers.ModelSerializer):
+    room = TopRatedSerializer(read_only=True)  # Nested serialization
+
+    class Meta:
+        model = WishList
+        fields = '__all__'
+
+
+
+class BlockAndUnblockSerializer(serializers.Serializer):
+    class Meta:
+        model = User
+        fields = ['is_active']

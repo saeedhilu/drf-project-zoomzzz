@@ -12,11 +12,17 @@ from .views import (
     RoomDetailAPIView,
     WishListAPIView,
     RoomListView,
-    ReservationCreateAPIView,
+    BookingCreate,
     BookingCancelAPIView,
     InitiatePaymentAPIView,
     RatingViewSet,
-    TopRatedRoomListAPIView
+    TopRatedRoomListAPIView,
+    UserCanceledRooms,
+    UserConfirmedRooms,
+    UserPendingRooms,
+
+
+
     # RatingListCreateAPIView,
     # RatingRetrieveUpdateDestroyAPIView,
 
@@ -35,10 +41,16 @@ urlpatterns = [
     path('room-detail/<int:pk>/', RoomDetailAPIView.as_view(), name='room-detail'),
     path('wishlists/', WishListAPIView.as_view()),
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
-    path('reservations/<int:room_id>/', ReservationCreateAPIView.as_view(), name='create_reservation'),
+    path('reservations/<int:room_id>/', BookingCreate.as_view(), name='create_reservation'),
     path('reservations/canellation/<int:pk>/', BookingCancelAPIView.as_view(), name='booking-cancel'),
     path('api/initiate_payment/', InitiatePaymentAPIView.as_view(), name='initiate_payment'),
     path('rooms/<int:room_id>/ratings/create/', RatingViewSet.as_view(), name='rating-create'),
     path('rooms/<int:room_id>/ratings/<int:pk>/', RatingViewSet.as_view(), name='rating-detail'),
     path('rooms/top-rated/', TopRatedRoomListAPIView.as_view(), name='top-rated-rooms'),
+    path('canceled-rooms/', UserCanceledRooms.as_view(), name='user_canceled_rooms'),
+    path('confirmed-rooms/', UserConfirmedRooms.as_view(), name='user_confirmed_rooms'),
+    path('pending-rooms/', UserPendingRooms.as_view(), name='user_pending_rooms'),
+
+
+
 ]

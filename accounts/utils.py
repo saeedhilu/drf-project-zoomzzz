@@ -405,3 +405,25 @@ def  get_vendor_summary_statistics(user_id):
     except Exception as e:
         # Handle exceptions, such as invalid user_id or database errors
         return {'error': str(e)}
+
+
+
+
+
+# # utils.py
+
+# from django.core.exceptions import ValidationError
+# from .models import Reservation
+
+# def validate_unique_booking(room, check_in, check_out, instance=None):
+#     overlapping_bookings = Reservation.objects.filter(
+#         room=room,
+#         check_in__lt=check_out,
+#         check_out__gt=check_in
+#     ).exclude(reservation_status='Canceled')
+
+#     if instance:
+#         overlapping_bookings = overlapping_bookings.exclude(pk=instance.pk)
+
+#     if overlapping_bookings.exists():
+#         raise ValidationError('Room is already booked for the selected dates.')

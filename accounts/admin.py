@@ -27,6 +27,11 @@ class ReservationAdmin(admin.ModelAdmin):
         'reservation_status',
         'is_active',
         'amount',
+        'email',
+        'last_name',
+        'first_name',
+        'contact_number'
+
     )
     list_filter = ('reservation_status', 'is_active', 'room', 'user')
     search_fields = ('user__username', 'room__name')
