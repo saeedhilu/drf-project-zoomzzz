@@ -477,7 +477,6 @@ class VerifyEmailChangeView(APIView):
 
 
 
-# ###############################
 class DashboardView(APIView):
     """
     API view to provide recent bookings and summary statistics for the admin dashboard.
@@ -485,29 +484,23 @@ class DashboardView(APIView):
 
     def get(self, request):
         user = request.user
-        print('user',user)
         
+        # Get summary statistics for the vendor
+        summary = get_vendor_summary_statistics(user.id)
         
-        summary = get_vendor_summary_statistics(request.user)
-        
+        # Get recent pending bookings for the vendor
         recent_bookings = Reservation.objects.filter(
-            room__created_by=user).select_related(
-                'user', 'room'
-                ).order_by('-created_at')
-    
+            room__created_by=user.id, reservation_status=Reservation.PENDING
+        ).select_related('user', 'room').order_by('-created_at')
 
-        
         # Serialize recent bookings
-        booking_serializer = ReservationSerializer(
-            recent_bookings, many=True
-            )
+        booking_serializer = ReservationSerializer(recent_bookings, many=True)
 
-        # Return the response with recent bookings
+        # Return the response with recent bookings and summary statistics
         return Response({
             'recent_bookings': booking_serializer.data,
             'summary': summary
         })
-
 
 
 

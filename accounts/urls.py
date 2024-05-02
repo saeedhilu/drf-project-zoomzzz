@@ -41,6 +41,8 @@ urlpatterns = [
     path('room-detail/<int:pk>/', RoomDetailAPIView.as_view(), name='room-detail'),
     path('wishlists/', WishListAPIView.as_view()),
     path('wishlists/<int:pk>/', WishListAPIView.as_view()),
+
+    # >>>>>>>>>>>>>>>>
     path('reservations/<int:room_id>/', BookingCreate.as_view(), name='create_reservation'),
     path('reservations/canellation/<int:pk>/', BookingCancelAPIView.as_view(), name='booking-cancel'),
     path('api/initiate_payment/', InitiatePaymentAPIView.as_view(), name='initiate_payment'),

@@ -88,8 +88,10 @@ class Room(models.Model):
 
     def get_absolute_url(self):
         return reverse('room-detail', kwargs={'pk': self.pk})
+
+        
     def get_average_rating(self):
-        # Calculate the average rating for this room
+        
         Rating = apps.get_model('accounts', 'Rating')
 
         average_rating = Rating.objects.filter(room=self).aggregate(average=Avg('rating'))

@@ -346,18 +346,18 @@ def get_summary_statistics():
     """
     Total summary statics
     """
-    
+    # Find the total booking count
     total_bookings = Reservation.objects.count()
     
-    
+    # find total venodrs count
     total_vendors = User.objects.filter(is_vendor=True).count()
     
-    
+    # find total check in count( pending means user checkin)
     total_check_ins = Reservation.objects.filter(
         Q(reservation_status='Pending') | Q(reservation_status='PENDING')
     ).count()
     
-    
+    # find the total checkout (Confimed means User checkouted)
     total_check_outs = Reservation.objects.filter(
         Q(reservation_status='CONFIRMED') | Q(reservation_status='Confirmed')
     ).count()
@@ -372,30 +372,18 @@ def get_summary_statistics():
 
 
 
-def  get_vendor_summary_statistics(user_id):
+def get_vendor_summary_statistics(user_id):
     """
     Vendor summary statistics
-
     """
-    print('hello')
     try:
-        # Get total bookings for the vendor
-        total_bookings = Reservation.objects.filter(room__created_by=user_id).select_related('user', 'room').count()
-        print('total booking si ',total_bookings)
-        # Calculate total check-ins for the vendor
-        # Count bookings where the reservation status is 'Pending' or 'PENDING'
-        total_check_ins = Reservation.objects.filter(room__created_by=user_id,reservation_status='Pending').count()
-        print('total checking is ',total_check_ins)
-
-        # Calculate total check-outs for the vendor
-        # Count bookings where the reservation status is 'CONFIRMED' or 'Confirmed'
-        total_check_outs = Reservation.objects.filter(room__created_by=user_id,reservation_status='Confirmed').count()
-        print(total_check_outs)
-
-        one_week_ago = timezone.now() - timedelta(days=1)
-        today_check_ins = Reservation.objects.filter()
-
-
+        # Get total bookings, total check-ins, and total check-outs for the vendor
+        total_bookings = Reservation.objects.filter(
+            room__created_by=user_id).count()
+        total_check_ins = Reservation.objects.filter(
+            room__created_by=user_id, reservation_status=Reservation.PENDING).count()
+        total_check_outs = Reservation.objects.filter(
+            room__created_by=user_id, reservation_status=Reservation.CONFIRMED).count()
 
         return {
             'total_bookings': total_bookings,
@@ -405,9 +393,6 @@ def  get_vendor_summary_statistics(user_id):
     except Exception as e:
         # Handle exceptions, such as invalid user_id or database errors
         return {'error': str(e)}
-
-
-
 
 
 # # utils.py

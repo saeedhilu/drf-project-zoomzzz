@@ -16,7 +16,7 @@ class RoomCreateAPIView(APIView):
     def post(self, request, format=None):
         if not request.user.is_vendor:  # Check if user is a vendor
             return Response(
-                {'error': PERMISSION_DENIED},
+                {ERROR_MESSAGE: PERMISSION_DENIED},
                 status=status.HTTP_403_FORBIDDEN
                             )
         
@@ -47,7 +47,7 @@ class RoomDetailAPIView(APIView):
         try:
             room = Room.objects.get(pk=pk)
         except Room.DoesNotExist:
-            raise NotFound("Room not found")
+            raise NotFound(ROOM_NOT_FOUND)
 
         # Check if the requesting user is the creator of the room
         
@@ -71,7 +71,7 @@ class RoomDetailAPIView(APIView):
         room = self.get_object(pk)
         room.delete()
         return Response(
-            {'message': f'Successfully deleted {room.name}.'}, 
+            {MESSAGE    : f'DELETE_SUCCESS {room.name}.'}, 
             status=status.HTTP_204_NO_CONTENT
         )
     

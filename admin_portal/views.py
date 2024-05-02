@@ -41,7 +41,7 @@ class SuperAdminLoginView(APIView):
                 }, status=status.HTTP_200_OK)
             else:
                 return Response(
-                    {'error': 'Invalid credentials'}, 
+                    {ERROR_MESSAGE: INVALID_CREDENTIAL}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
         else:
@@ -79,7 +79,7 @@ class AbstractCRUDView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(
-                {'message': f'successfully added {request.data.get("name", "")} {self.model._meta.verbose_name}'},
+                {MESSAGE: f'ADD_SUCCESS {request.data.get("name", "")} {self.model._meta.verbose_name}'},
                 status=status.HTTP_201_CREATED
             )
         return Response(
@@ -99,7 +99,7 @@ class AbstractCRUDView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(
-                {'message': f'successfully updated {request.data.get("name", "")} {self.model._meta.verbose_name}'},
+                {MESSAGE: f'UPDATE_SUCCESS {request.data.get("name", "")} {self.model._meta.verbose_name}'},
                 status=status.HTTP_200_OK
             )
         return Response(
@@ -112,7 +112,7 @@ class AbstractCRUDView(APIView):
         obj = self.get_object(pk)
         obj.delete()
         return Response(
-            {'message': f'successfully deleted {self.model._meta.verbose_name}'}, 
+            {MESSAGE: f'DELETE_SUCCESS {self.model._meta.verbose_name}'}, 
             status=status.HTTP_204_NO_CONTENT
         )
 
@@ -182,7 +182,7 @@ class AdminRoomListingView(generics.ListAPIView):
     API view to list all rooms efficiently for the admin dashboard, with summary statistics.
     """
     queryset = cache_queryset(
-        'allrooms',
+        ALL_ROOMS,
         Room.objects.select_related(
             'category', #
             'room_type', 
@@ -230,7 +230,7 @@ class VebdorsListView(generics.ListAPIView):
     permission_classes = [IsSuperUser]
 
     def get_queryset(self):
-        queryset_cache_key = 'vendor_queryset'
+        queryset_cache_key = VENDOR_QUERY_SET
         queryset = cache.get(queryset_cache_key)
 
         if queryset is None:
@@ -248,7 +248,7 @@ class UserDetailaView(generics.ListAPIView):
     permission_classes = [IsSuperUser]
 
     def get_queryset(self):
-        queryset_cache_key = 'user_queryset'
+        queryset_cache_key = USER_QUERY_SET
         queryset = cache.get(queryset_cache_key)
 
         if queryset is None:
@@ -288,7 +288,7 @@ class UserBlockUnblockView(generics.GenericAPIView):
             message = BLOCK_SUCCESS
 
         return Response({
-            'message': message
+            MESSAGE: message
         }, status=status.HTTP_200_OK)
 
 

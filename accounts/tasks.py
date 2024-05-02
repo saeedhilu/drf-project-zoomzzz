@@ -36,16 +36,3 @@
 
 
 
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from pytz import timezone
-from .models import Reservation
-
-@receiver(post_save, sender=Reservation)
-def update_reservation_status(sender, instance, created, **kwargs):
-    if not created:  # Only update on existing reservations
-        today = timezone.now().date()
-        if instance.checkout_date and instance.checkout_date <= today:
-            instance.reservation_status = 'Confirmed'
-            instance.save()
-
