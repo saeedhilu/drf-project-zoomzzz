@@ -139,6 +139,7 @@ class Reservation(models.Model):
     contact_number = models.CharField(max_length=15)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    
 
 
 

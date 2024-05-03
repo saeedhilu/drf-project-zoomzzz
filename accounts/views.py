@@ -539,9 +539,12 @@ class RoomListView(ListAPIView):
                 'location__country',
                 'category',
                 'room_type',
-                'bed_type'
+                'bed_type',
+                
+
             ).prefetch_related(
                 'amenities'
+                
             )
             filtered_queryset = self.filter_queryset(base_queryset)
 

@@ -102,6 +102,12 @@ APPEND_SLASH = False
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_URL_REGEX = r"^/api/.*"
 
+
+
+
+
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
 INSTALLED_APPS = [
     
     'django.contrib.admin',
@@ -118,14 +124,32 @@ INSTALLED_APPS = [
     'rooms',  
     'django_filters',
 
+
+    'celery',
+
+    'django_celery_results',
+    'django_celery_beat',
+
     #corsheaders apps
     'corsheaders',
-    'debug_toolbar',    
-
-    
-
+    'debug_toolbar',
 
 ]
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/kolkata'
+
+CELERY_BEAT_SCHEDULE = {
+    'update_reservation_status': {
+        'task': 'accounts.tasks.update_reservation_status',
+        'schedule': 200,  
+    },
+}
+
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -135,13 +159,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
-
     # corsheader
     'corsheaders.middleware.CorsMiddleware'
-
-
 ]
-
 
 
 
