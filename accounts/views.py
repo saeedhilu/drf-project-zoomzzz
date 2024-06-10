@@ -58,6 +58,7 @@ class GoogleSignInView(APIView):
     """
     API endpoint for Google sign-in authentication.
     """
+    
     serializer_class = GoogleSignSerializer
 
     def post(self, request):
@@ -71,105 +72,70 @@ class GoogleSignInView(APIView):
                         status=status.HTTP_200_OK)
     
 
-
-
 class GenerateOTPView(APIView):
-    """
-    This view is used to generate and send OTP to the user
-                (Phone number signup)
-    """
     serializer_class = GenerateOTPSerializer
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone_number = serializer.validated_data['phone_number']
-        print(phone_number)
-        
+        print('Phone number from input:', phone_number)
 
         try:
-            # existing_phone_number = request.session.get('phone_number')
-            # if existing_phone_number and existing_phone_number != phone_number:
             request.session['phone_number'] = phone_number
-            
+            request.session.modified = True  # Ensure session is saved
+            phone = request.session.get('phone_number')
+            print('Phone number from session after setting:', phone)
 
-
-            otp_instance, created = OTP.objects.get_or_create(
-                            phone_number=phone_number
-                            )
-
-            if not created and otp_instance.otp_expiry >= timezone.now():
-                return Response(
-                    {ERROR_MESSAGE: OTP_STILL_VALID},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
+            otp_instance, created = OTP.objects.get_or_create(phone_number=phone_number)
             otp_instance.otp_code = generate_otp_code()
-            otp_instance.otp_expiry = timezone.now() + timezone.timedelta(minutes=5)  
+            print('Generated OTP:', otp_instance.otp_code)
+            otp_instance.otp_expiry = timezone.now() + timezone.timedelta(minutes=5)
             otp_instance.save()
 
-            message = f'Your OTP IS : {otp_instance.otp_code}'
+            message = f'Your OTP is: {otp_instance.otp_code}'
             sms_sent = send_sms(message, phone_number)
 
             if sms_sent:
-                return Response(
-                    {MESSAGE: GENERATE_OTP_MESSAGE}, 
-                    status=status.HTTP_200_OK
-                    )
+                return Response({"message": "OTP sent successfully"}, status=status.HTTP_200_OK)
             else:
-                return Response(
-                    {ERROR_MESSAGE: FAILED_TO_SENTOTP}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                return Response({"error_message": "Failed to send OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
-            return Response(
-                {ERROR_MESSAGE: f'FAIL_GENERATE: {str(e)}'},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                            )
+            return Response({"error_message": f'Failed to generate OTP: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class VerifyOTPView(APIView):
-    """
-    This endpoint is used to verify the OTP sent to the user.(phone number otp)
-    """
     def post(self, request):
-        phone_number     = request.session.get('phone_number')
+        phone = request.data.get('phone_number')
+        print('Phone number from session during verification:', phone)
         otp_entered = request.data.get('otp')
-        print('Phone number is ',phone_number)
+        print('OTP entered:', otp_entered)
+
+        if not phone:
+            return Response({"error_message": "Phone number not found in session."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            otp_instance = OTP.objects.get(phone_number=phone_number)
+            otp_instance = OTP.objects.get(phone_number=phone)
 
             if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
                 otp_instance.delete()
-                user, _ = User.objects.get_or_create(phone_number=phone_number)
-                access_token = RefreshToken.for_user(user)
+                user, _ = User.objects.get_or_create(phone_number=phone)
+                access_token = RefreshToken.for_user(user).access_token
                 refresh_token = RefreshToken.for_user(user)
                 refresh_token_exp = timezone.now() + timedelta(days=7)
                 return Response({
-                    "access_token": str(access_token.access_token),
+                    "access_token": str(access_token),
                     "refresh_token": str(refresh_token),
                     "refresh_token_expiry": refresh_token_exp.isoformat(),
-                    "user": {
-                        "id": user.id,
-                        "phone_number": user.phone_number,
-                    },
-                    MESSAGE: EMAIL_SIGNIN_SUCCESSGULLY,
+                    "user": {"id": user.id, "phone_number": user.phone_number},
+                    "message": "OTP verified successfully",
                 }, status=status.HTTP_200_OK)
             else:
-                return Response(
-                    {ERROR_MESSAGE: INVALID_OTP}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                    )
+                return Response({"error_message": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
         except OTP.DoesNotExist:
-            return Response(
-                {ERROR_MESSAGE: ENTERY_NOT_FOUND},
-                    status=status.HTTP_404_NOT_FOUND)
+            return Response({"error_message": "OTP entry not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response(
-                {ERROR_MESSAGE: str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            return Response({"error_message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -185,6 +151,7 @@ class ResendOTPView(APIView):
         Resend OTP to the user's phone number.
         """
         phone_number = request.session.get('phone_number')
+        print('resent ot p phn is ',phone_number)
 
         otp_instance, message = resend_otp(phone_number)
 

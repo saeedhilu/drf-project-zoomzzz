@@ -41,11 +41,12 @@ class GoogleAuthenticator:
         try:
             print('hai')
             id_info = id_token.verify_oauth2_token(access_token, GoogleRequest.Request(),settings.GOOGLE_CLIENT_ID)
+           
             if "accounts.google.com" in id_info['iss']:
                 return id_info
             
         except Exception as e:
-            return f"{e}"
+            return "Token is epire "
 
 
 def login_social_user(email,password):
@@ -211,8 +212,7 @@ def resend_otp(phone_number):
     try:
         otp_instance = OTP.objects.get(phone_number=phone_number)
 
-        if otp_instance.otp_expiry >= timezone.now():
-            return None, 'OTP resend is not allowed until the previous OTP expires.'
+        
 
         otp_instance.otp_code = generate_otp_code()
         otp_instance.otp_expiry = timezone.now() + timedelta(seconds=30)

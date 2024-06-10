@@ -22,31 +22,40 @@ from pathlib import Path#
 
 
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+# REST_FRAMEWORK = {
+#     'DEFAULT_AUTHENTICATION_CLASSES': (
         
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+#         'rest_framework_simplejwt.authentication.JWTAuthentication',
 
-    ),
-}
+#     ),
+# }
 
+# JWT for authentication purupse
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Example: Access token expires after 15 minutes
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Example: Refresh token expires after 7 days
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7), 
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
     'AUTH_HEADER_TYPES':('Bearer',),
 }
 
+# settings.py
+
+# Use database-backed sessions
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Ensure the session data is saved correctly
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Other session settings
+SESSION_COOKIE_SECURE = False  # Use True in production with HTTPS
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 1209600  # 2 weeks, adjust as needed
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# 
+
+#  Using psql Data base 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -60,6 +69,7 @@ DATABASES = {
 AUTHENTICATION_BACKENDS = (
     ('django.contrib.auth.backends.ModelBackend'),
 )
+
 
 # os.getenv.Env.read_env(BASE_DIR / '.env')
 
@@ -123,10 +133,7 @@ INSTALLED_APPS = [
     'vendor_management',  
     'rooms',  
     'django_filters',
-
-
     'celery',
-
     'django_celery_results',
     'django_celery_beat',
 
@@ -254,4 +261,11 @@ SPRING_EDGE_API_KEY = '621492a44a89m36c2209zs4l7e74672cj'
 
 INTERNAL_IPS = [
     "127.0.0.1",
+]
+CORS_ALLOW_ALL_ORIGINS = True 
+CORS_URL_REGEX = r"^/api/.*"
+# settings.py
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
 ]

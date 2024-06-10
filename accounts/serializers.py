@@ -52,6 +52,7 @@ class GenerateOTPSerializer(PhoneNumberMixin, serializers.Serializer):
     """
     Serializer for generating OTP given a phone number with country code.
     """
+    
     phone_number = serializers.CharField(max_length=20)
 
 

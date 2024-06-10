@@ -11,7 +11,7 @@ class PhoneNumberMixin:
 
     def validate_phone_number(self, value):
         try:
-            parsed_number = phonenumbers_parse(value, None)
+            parsed_number = phonenumbers_parse(value, "IN")
             if not phonenumbers_is_valid(parsed_number):
                 raise serializers.ValidationError("Invalid phone number format")
         except Exception as e:

@@ -29,11 +29,15 @@ from .views import (
 )
 
 urlpatterns = [
-    path('google/auth', GoogleSignInView.as_view(), name='google-sign-in'),
-    path('room-search/', RoomListView.as_view(), name='google-sign-in'),
+    # signin
+    path('google/auth/', GoogleSignInView.as_view(), name='google-sign-in'),
+    # 
     path('generate-ph-otp/', GenerateOTPView.as_view(), name='generate_phone_otp'),
     path('verify-ph-otp/', VerifyOTPView.as_view(), name='verify_phone_otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='otp-resending'),
+
+    path('room-search/', RoomListView.as_view(), name='google-sign-in'),
+    
     path('user/update/', UserProfileEditAPIView.as_view(), name='update-user'),
     path('phone-number/update/', ChangePhoneNumberView.as_view(), name='update-user'),
     path('verify-otp/update/', VerifyChangePhoneNumberView.as_view(), name='update-user'),
