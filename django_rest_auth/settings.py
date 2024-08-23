@@ -22,17 +22,9 @@ from pathlib import Path#
 
 
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-        
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
 
-#     ),
-# }
-
-# JWT for authentication purupse
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7), 
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1), 
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
     'AUTH_HEADER_TYPES':('Bearer',),
 }
@@ -54,6 +46,9 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks, adjust as needed
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# settings.py
+MEDIA_URL = 'images/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'images') 
 
 #  Using psql Data base 
 DATABASES = {
@@ -90,13 +85,13 @@ RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
 DEBUG =True
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'saeednm1124@gmail.com'
-EMAIL_HOST_PASSWORD = 'lbhx pkiq fyih utxk'
+EMAIL_HOST_PASSWORD = 'sviv cjrr iqgs hwsp'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # settings.py
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost',' https://7148-2405-201-f00d-3040-d1c-1fd7-1c4d-fd97.ngrok-free.app ']
 
 TIME_ZONE = 'Asia/Kolkata'
 AUTH_USER_MODEL = 'accounts.User'
@@ -140,8 +135,22 @@ INSTALLED_APPS = [
     #corsheaders apps
     'corsheaders',
     'debug_toolbar',
+     'channels',
 
 ]
+
+ASGI_APPLICATION = 'django_rest_auth.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
+
+
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -156,18 +165,26 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
+}
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # Remove 'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+     'django.contrib.auth.middleware.AuthenticationMiddleware', 
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
-    # corsheader
-    'corsheaders.middleware.CorsMiddleware'
 ]
 
 
@@ -196,14 +213,6 @@ WSGI_APPLICATION = 'django_rest_auth.wsgi.application'
 
 
 
-# AUTHENTICATION_BACKENDS = [
-#     'django.contrib.auth.backends.ModelBackend',  # Keep the default ModelBackend
-#     'accounts.backends.UserBackend',  # Add your custom authentication backend
-# ]
-
-
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
 
 

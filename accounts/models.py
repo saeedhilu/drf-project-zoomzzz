@@ -29,7 +29,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     is_active    = models.BooleanField(default=True)
     image        = models.ImageField(
-                        default='default.jpg', 
+                        default='', 
                         upload_to='user_profile_photo',null=True
                         )
     objects      = UserManager()
@@ -44,12 +44,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.username or self.phone_number or self.email
 
     @property
-    def tokens(self):
-        refresh = RefreshToken.for_user(self)
-        return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }
+    def tokens(self) -> dict[str,str]:
+        print('reached in gen tokens')
+        
+        referesh = RefreshToken.for_user(self)
+        
+        return{
+           'refresh': str(referesh),
+            'access': str(referesh.access_token),
+        } 
 
     @property
     def get_full_name(self):
@@ -111,7 +114,7 @@ class WishList(models.Model):
 from django.db import models
 
 class Reservation(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reservations')
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='bookings')
     check_in = models.DateField()
     check_out = models.DateField()
@@ -122,7 +125,7 @@ class Reservation(models.Model):
 
     RESERVATION_STATUS_CHOICES = (
         (PENDING, 'Pending'),
-        (CONFIRMED, 'Confirmed'),
+        (CONFIRMED, 'Confirmed'),   
         (CANCELED, 'Canceled'),
     )
 
@@ -149,14 +152,15 @@ class Reservation(models.Model):
 
 
 class Rating(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
-    rating = models.IntegerField()  
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings')
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='ratings')
+    rating = models.IntegerField()
     feedback = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True) 
 
     class Meta:
         unique_together = ('user', 'room')
+
 
 
 

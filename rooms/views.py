@@ -1,28 +1,25 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from accounts.permission import IsAuthenticatedUser
 from .models import Room
 from .serializers import RoomSerializer
 from rest_framework.exceptions import NotFound
 from accounts.constants import *
-from accounts.permission import IsActiveUser
+from accounts.permission import IsVendor
 class RoomCreateAPIView(APIView):
     """
     This view is used to create a room
     """
-    permission_classes = [IsActiveUser]  # Only authenticated users can access
+    permission_classes = [IsVendor]  
 
     def post(self, request, format=None):
-        if not request.user.is_vendor:  # Check if user is a vendor
-            return Response(
-                {ERROR_MESSAGE: PERMISSION_DENIED},
-                status=status.HTTP_403_FORBIDDEN
-                            )
+        print('request for room creating ................',request.data)
         
         serializer = RoomSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)  # Assign the vendor as the creator of the room
+            serializer.save(created_by=request.user)  
+            
             return Response(
                 serializer.data, 
                 status=status.HTTP_201_CREATED
@@ -30,6 +27,9 @@ class RoomCreateAPIView(APIView):
         return Response(serializer.errors, 
                         status=status.HTTP_400_BAD_REQUEST
                         )
+    
+
+    
 from accounts.permission import IsVendor
 from rest_framework.exceptions import PermissionDenied, NotFound
 
@@ -79,7 +79,7 @@ class VendorRoomListAPIView(APIView):
     """
     This view is used to retrieve all rooms listed by the authenticated vendor.
     """
-    permission_classes = [IsVendor]  # Only vendors can access this view
+    permission_classes = [IsVendor]  
 
     def get(self, request):
         rooms = Room.objects.filter(created_by=request.user)

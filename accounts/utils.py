@@ -10,6 +10,7 @@ import requests
 from django.core.validators import RegexValidator
 from .models import User,OTP
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from rest_framework import status
@@ -23,7 +24,7 @@ from rest_framework import serializers
 from .constants import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-
+User = get_user_model()
 
 def generate_otp_code():
     """
@@ -32,52 +33,91 @@ def generate_otp_code():
     """
     return ''.join(random.choices('0123456789', k=6))
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from django.conf import settings
 
+class Google_signin():
+    """
+    Class for Google Sign-In authentication.
+    """
 
-class GoogleAuthenticator:
     @staticmethod
     def validate(access_token):
-        print(settings.GOOGLE_CLIENT_ID)
+        """
+        Validate Google access token.
+
+        :param access_token: The access token received from Google.
+        :return: User data if validation is successful, otherwise None.
+        """
         try:
-            print('hai')
-            id_info = id_token.verify_oauth2_token(access_token, GoogleRequest.Request(),settings.GOOGLE_CLIENT_ID)
-           
-            if "accounts.google.com" in id_info['iss']:
+            id_info = id_token.verify_oauth2_token(access_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID)
+            if 'accounts.google.com' in id_info['iss']:
                 return id_info
-            
         except Exception as e:
-            return "Token is epire "
+            print('Error:', e)
+            return None
 
 
-def login_social_user(email,password):
-    user = authenticate(email=email,password=password)
-    if user:
-        user_tokens = user.token
-        return {
-            'email': user.email,    
-            'username': user.get_username(),
-            'access_token': str(user_tokens.get('access')),
-            'refresh_token': str(user_tokens.get('refresh'))
-        }
-    return None
+def login_google_user(email):
+    """
+    Authenticate and login a user using Google credentials.
 
-def register_social_user(email, username):
-    user=User.objects.filter(email=email)
+    Returns User information along with access and refresh tokens.
+    """
+    user = User.objects.filter(email=email).first()
+    print('user i s:',user)
+    print(user)
+    print(email)
+    if not user:
+        raise AuthenticationFailed("Invalid login credentials")
+    
+
+    user_tokens = user.tokens
+    user_data = {
+        'email': user.email,
+        'username': user.username,
+        'access_token': user_tokens['access'],
+        'refresh_token': user_tokens['refresh'],
+        "id":user.id,
+        "phone_number": user.phone_number,
+        "is_vendor": user.is_vendor,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+    }
+    if user.image:
+        user_data['image'] = str(user.image)
+    return {
+       "user":user_data
+                    
+    }
+
+
+
+def register_google_user(email, username):
+    """
+    Register a new user with Google credentials.
+
+    Returns User information along with access and refresh tokens.
+    """
+    user = User.objects.filter(email=email)
     if user.exists():
-        login_social_user(email, settings.CUSTOM_PASSWORD_FOR_AUTH)
-    else:   
-        new_user={
-            'email':email,
-            'username':username,
-            'password':settings.CUSTOM_PASSWORD_FOR_AUTH
+        return login_google_user(email)
+    else:
+        new_user = {
+            'email': email,
+            'username': username,
+            'password': settings.CUSTOM_PASSWORD_FOR_AUTH
         }
-        register_user=User.objects.create_user(**new_user)
-        register_user.is_active=True
+        register_user = User.objects.create_user(**new_user)
+        register_user.is_active = True
         register_user.save()
-        login_social_user(email, settings.CUSTOM_PASSWORD_FOR_AUTH)
+        return login_google_user(email)
+
 
 
 def send_otp_email(email,otp , first_name=None):
+    print('entered in sent otp:')
     subject = "Your OTP for Vendor Sign Up"
     message = f"Hi {first_name},\n\nYour OTP is: {otp}\n\nPlease use this OTP to complete your sign-up process.\n\nThank you."  
     sender = settings.EMAIL_HOST_USER  # Sender's email address
@@ -97,6 +137,7 @@ def forgot_password_link(user, email):
     )
     return HttpResponse({'success': 'Password reset email sent'}, status=status.HTTP_200_OK)
 
+import requests
 
 def send_sms(message, phone_number):
     try:
@@ -111,13 +152,17 @@ def send_sms(message, phone_number):
         response = requests.get(url)
         
         if response.status_code == 200:
-            return True  # SMS sent successfully
+            return True 
         else:
-            return False  # Failed to send SMS
-    except Exception as e:
+            print(f"Failed to send SMS. Status code: {response.status_code}")
+            return False  
+    except requests.exceptions.RequestException as e:
         print(f"Error sending SMS: {e}")
-        return False  # Failed to send SMS due to exception
-    
+        return False   
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
+
 
 
 
@@ -186,9 +231,7 @@ def generate_and_send_otp(phone_number):
     """
     otp_instance, created = OTP.objects.get_or_create(phone_number=phone_number)
 
-    if not created and otp_instance.otp_expiry >= timezone.now():
-        return None, "A valid OTP already exists for this phone number."
-
+    
     otp_instance.otp_code = generate_otp_code()
     otp_instance.otp_expiry = timezone.now() + timedelta(minutes=5)  # Set expiry time, adjust as needed
     otp_instance.save()
@@ -233,37 +276,40 @@ def resend_otp(phone_number):
 
 
 def verify_otp(phone_number, otp_entered):
+    print('hpne number ',phone_number)
+    print('entered otp ',otp_entered)
     """
     Verify the OTP entered by the user.
     Returns a tuple containing a boolean indicating whether the OTP is valid and a message.
     """
     try:
         otp_instance = OTP.objects.get(phone_number=phone_number)
-
+        print(otp_instance)
         if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
             otp_instance.delete()
             return True, "OTP verification successful"
         else:
             return False, "Invalid OTP or OTP expired"
     except OTP.DoesNotExist:
-        return False, "OTP entry not found"
+        return False, "OTP entry not found Does not "
     except Exception as e:
         return False, f"Failed to verify OTP. Exception: {str(e)}"
 
 
+
+
+
+    
 def validate_phone_number(value):
     """
     Validate phone number format and uniqueness.
     """
-    try:
-        parsed_number = phonenumbers_parse(value, None)
-        if User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError("Phone number is already in use")
-
-        if not phonenumbers_is_valid(parsed_number):
-            raise serializers.ValidationError("Invalid phone number format")
-    except Exception as e:
-        raise serializers.ValidationError(str(e))
+    
+        
+    if User.objects.filter(phone_number=value).exists():
+        raise serializers.ValidationError("Phone number is already in usedd")
+        
+    
 def validate_unique_email(value):
     """
     Validate email uniqueness.
@@ -336,7 +382,7 @@ def cache_queryset(key, queryset, timeout=300):
 
 
 
-
+from rooms.models import Room
 from django.utils import timezone
 from datetime import timedelta
 from .models import Reservation, User
@@ -348,9 +394,10 @@ def get_summary_statistics():
     """
     # Find the total booking count
     total_bookings = Reservation.objects.count()
-    
+    total_rooms    = Room.objects.count()
     # find total venodrs count
     total_vendors = User.objects.filter(is_vendor=True).count()
+    total_users = User.objects.filter(is_vendor=False,is_superuser=False).count()
     
     # find total check in count( pending means user checkin)
     total_check_ins = Reservation.objects.filter(
@@ -367,9 +414,13 @@ def get_summary_statistics():
         'total_vendors': total_vendors,
         'total_check_ins': total_check_ins,
         'total_check_outs': total_check_outs,
+        'total_rooms': total_rooms,
+        'total_users':total_users,
+
     }
 
 
+from django.db.models import Sum
 
 
 def get_vendor_summary_statistics(user_id):
@@ -378,6 +429,7 @@ def get_vendor_summary_statistics(user_id):
     """
     try:
         # Get total bookings, total check-ins, and total check-outs for the vendor
+        
         total_bookings = Reservation.objects.filter(
             room__created_by=user_id).count()
         total_check_ins = Reservation.objects.filter(
@@ -385,10 +437,14 @@ def get_vendor_summary_statistics(user_id):
         total_check_outs = Reservation.objects.filter(
             room__created_by=user_id, reservation_status=Reservation.CONFIRMED).count()
 
+        total_earnings = Reservation.objects.filter(
+            room__created_by=user_id).aggregate(total_earnings=Sum('amount'))['total_earnings'] or 0
+
         return {
             'total_bookings': total_bookings,
             'total_check_ins': total_check_ins,
             'total_check_outs': total_check_outs,
+            'total_earnings': total_earnings,
         }
     except Exception as e:
         # Handle exceptions, such as invalid user_id or database errors

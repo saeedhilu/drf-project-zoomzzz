@@ -47,7 +47,7 @@ class RoomAdmin(admin.ModelAdmin):
         'id', 'name', 'location', 'get_city_name', 'get_country_name',
         'description', 'price_per_night', 'max_occupancy', 'availability',
         'pet_allowed', 'room_type', 'bed_type', 'created_by', 'created_at',
-        'get_amenities_list',  # Include the custom method here
+        'get_amenities_list',  
     ]
 
     def get_amenities_list(self, obj):

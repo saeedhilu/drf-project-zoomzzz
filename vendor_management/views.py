@@ -8,12 +8,12 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode
 from datetime import timedelta, datetime
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from accounts.permission import IsAuthenticatedUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics
-from accounts.models import User
+from accounts.models import Rating, User
 from accounts.serializers import UserProfileEditSerializer
 from accounts.permission import IsSuperUser
 from rest_framework import generics
@@ -40,6 +40,9 @@ from .serializers import (
     VendorProfileSerializer,
 )
 from accounts.constants import *
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from accounts.views import StandardResultsSetPagination
 
 class VendorSignupView(APIView):
     """
@@ -48,19 +51,21 @@ class VendorSignupView(APIView):
     serializer_class = GenerateEmailSerializer
 
     def post(self, request):
+        print('from request for vendor creating:',request.data)
+
         """
         Generate OTP and send it to the provided email address.
         """
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            email          = validated_data['email']
-            phone_number   = validated_data.get('phone_number')
-            password       = validated_data.get('password')
-            first_name     = validated_data.get('first_name')
-            last_name      = validated_data.get('last_name')
-            # username is the first part of the email address
-            username       = email.split('@')[0]
+            email = validated_data['email']
+            phone_number = validated_data.get('phone_number')
+            print('phone number si :',phone_number)
+            password = validated_data.get('password')
+            first_name = validated_data.get('first_name')
+            last_name = validated_data.get('last_name')
+            username = email.split('@')[0]
 
             try:
                 otp_instance = OTP.objects.get(email=email)
@@ -72,70 +77,81 @@ class VendorSignupView(APIView):
 
             try:
                 otp, otp_instance, _ = create_otp(email, password)
-
+                print('otp is ssss:',otp)
+                print('email is :',email)
                 send_otp_email(email, otp, validated_data['first_name'])
 
-                request.session['username']     = username
-                request.session['email']        = email
-                request.session['phone_number'] = phone_number
-                request.session['first_name']   = first_name
-                request.session['last_name']    = last_name
+                request.session.update({
+                    'username': username,
+                    'email': email,
+                    'phone_number': phone_number,
+                    'first_name': first_name,
+                    'last_name': last_name
+                })
 
                 return Response({'message': GENERATE_OTP_MESSAGE},
                                 status=status.HTTP_200_OK)
 
             except Exception as e:
+                print('error is :',e)
                 return Response(
                     {'error': str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                                )
+                )
         else:
             return Response(
                 serializer.errors, 
                 status=status.HTTP_400_BAD_REQUEST
-                )
+            )
+        
+
+        
+import logging
+logger = logging.getLogger(__name__)
 
 
-class VenodrVerifyView(APIView):
+class VendorVerifyView(APIView):
     """
     API endpoint to verify email OTP and authenticate user as a vendor.
     """
     def post(self, request):
+        print('from request for vendor verifying:',request.data)
+        email = request.data.get('email')
+        otp_entered = request.data.get('otp')
         
-        email        = request.session.get('email')
-        otp_entered  = request.data.get('otp')
-    
-        print(email)
-        print(otp_entered)
-        
-        # Get the data from session
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        phone_number = request.data.get('phone_number')
+        username = email.split('@')[0]
 
-        first_name   = request.session.get('first_name')
-        last_name    = request.session.get('last_name')
-        phone_number = request.session.get('phone_number')
-        username     = request.session.get('username')
+        print('1',email,'2',otp_entered,'3',first_name,'4',last_name,'5',phone_number,'6',username)
 
         try:
             otp_instance = OTP.objects.get(email=email)
+            print('otp isnts:',otp_instance)
             password = otp_instance.password
+            print('password for instance:',password)
 
             if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
                 otp_instance.delete()
 
                 user = User.objects.create_user(
-                    email       =email,
-                    username    =username,
-                    password    =password,
-                    first_name  =first_name,
-                    last_name   =last_name,
+                    email=email,
+                    username=username,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
                     phone_number=phone_number,
-                    is_vendor   =True,
-                    is_active   =True
+                    is_vendor=True,
+                    is_active=True
                 )
 
-                access_token    = RefreshToken.for_user(user)
-                refresh_token   = RefreshToken.for_user(user)
-                refresh_token_exp= timezone.now() + timedelta(days=7)
+                access_token = RefreshToken.for_user(user)
+                refresh_token = RefreshToken.for_user(user)
+                refresh_token_exp = timezone.now() + timedelta(days=7)
+
+                # Send notification to admin
+                # self.send_admin_notification(f'New vendor verified:')
 
                 return Response({
                     "access_token": str(access_token.access_token),
@@ -149,27 +165,107 @@ class VenodrVerifyView(APIView):
                         "last_name": user.last_name,
                         "phone_number": user.phone_number
                     },
-                    "message": SIGNUP_SUCCESS,
-                }, status=status.HTTP_200_OK)
+                    "message": "Signup successful",
+                }, status=200)
             else:
-                return Response({'error': 'Invalid OTP or OTP expired'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid OTP or OTP expired'}, status=400)
         except OTP.DoesNotExist:
-            return Response({'error': 'OTP entry not found'},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'OTP entry not found'}, status=404)
         except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            return Response({'error': str(e)}, status=500)
+        
 
+
+
+    # def send_admin_notification(self, message):
+    #     print('message is :',message)
+    #     channel_layer = get_channel_layer()
+    #     async_to_sync(channel_layer.group_send)(
+    #         'admin_notifications',
+    #         {
+    #             'type': 'send_notification',
+    #             'message': message
+    #         }
+    #     )
+
+# class VendorVerifyView(APIView):
+#     """
+#     API endpoint to verify email OTP and authenticate user as a vendor.
+#     """
+#     def post(self, request):
+#         email = request.session.get('email')
+#         otp_entered = request.data.get('otp')
+        
+#         first_name = request.session.get('first_name')
+#         last_name = request.session.get('last_name')
+#         phone_number = request.session.get('phone_number')
+#         username = request.session.get('username')
+
+#         try:
+#             otp_instance = OTP.objects.get(email=email)
+#             password = otp_instance.password
+
+#             if otp_instance.otp_code == otp_entered and otp_instance.otp_expiry >= timezone.now():
+#                 otp_instance.delete()
+
+#                 user = User.objects.create_user(
+#                     email=email,
+#                     username=username,
+#                     password=password,
+#                     first_name=first_name,
+#                     last_name=last_name,
+#                     phone_number=phone_number,
+#                     is_vendor=True,
+#                     is_active=True
+#                 )
+
+              
+#                 access_token = RefreshToken.for_user(user)
+#                 refresh_token = RefreshToken.for_user(user)
+#                 refresh_token_exp = timezone.now() + timedelta(days=7)
+#                 channel_layer = get_channel_layer()
+#                 message = f"New vendor verified: {first_name} {last_name} ({email})"
+#                 async_to_sync(channel_layer.group_send)(
+#                 'admin_notifications',
+#                     {
+#                         'type': 'send_notification',
+#                         'message': message
+#                     }
+#                 )
+#                 return Response({
+#                     "access_token": str(access_token.access_token),
+#                     "refresh_token": str(refresh_token),
+#                     "refresh_token_expiry": refresh_token_exp.isoformat(),
+#                     "user": {
+#                         'username': user.username,
+#                         "id": user.id,
+#                         "email": user.email,
+#                         "first_name": user.first_name,
+#                         "last_name": user.last_name,
+#                         "phone_number": user.phone_number
+#                     },
+#                     "message": SIGNUP_SUCCESS,
+#                 }, status=status.HTTP_200_OK)
+#             else:
+#                 return Response({'error': 'Invalid OTP or OTP expired'},
+#                                 status=status.HTTP_400_BAD_REQUEST)
+#         except OTP.DoesNotExist:
+#             return Response({'error': 'OTP entry not found'},
+#                             status=status.HTTP_404_NOT_FOUND)
+#         except Exception as e:
+#             return Response(
+#                 {'error': str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 
 class ResendEmailOTPView(APIView):
     """
     API endpoint to resend OTP via email.
     """
     def post(self, request):
-        email = request.data.get('email')
+        print('request data is :',request.data)
+        email = request.data.get('data')
+        print('email for ressentign :',email)
         try:
             otp_instance = OTP.objects.get(email=email)
 
@@ -179,7 +275,7 @@ class ResendEmailOTPView(APIView):
                 otp_instance.otp_code = otp
                 otp_instance.otp_expiry = otp_expiry
                 otp_instance.save()
-
+                print('otp is :',otp)
                 send_otp_email(email, otp_instance.otp_code)
 
                 return Response({'message': 'OTP resent successfully'},
@@ -225,7 +321,9 @@ class VendorLoginView(APIView):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                "phone_number": user.phone_number
+                "phone_number": user.phone_number,
+                'is_vendor': user.is_vendor,
+                
             }
 
             return Response({
@@ -340,7 +438,7 @@ class ChangePasswordView(APIView):
     """
     This end point for changing password
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedUser]
     def post(self, request):
         user = request.user  # Access the authenticated user
 
@@ -364,7 +462,7 @@ class VendorProfileAPIView(APIView):
     """
     View for retrieving and updating user profile information.
     """
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedUser,)
 
     def get(self, request):
         """
@@ -401,6 +499,7 @@ class ChangeEmailView(APIView):
     serializer_class = ChangeEmailSerializer
 
     def post(self, request):
+        print('requesest data is :',request.data)
         """
         Generate OTP and send it to the provided email address.
         """
@@ -446,8 +545,10 @@ class VerifyEmailChangeView(APIView):
     Verify otp with email
     """
     def post(self, request):
-        email = request.session.get('email')
+        email = request.data.get('email')
         otp_entered = request.data.get('otp')
+        print('email is :',email)
+        print('entered otp is :',otp_entered)
         user = request.user
 
         try:
@@ -477,6 +578,7 @@ class VerifyEmailChangeView(APIView):
 
 
 
+
 class DashboardView(APIView):
     """
     API view to provide recent bookings and summary statistics for the admin dashboard.
@@ -487,14 +589,13 @@ class DashboardView(APIView):
         
         # Get summary statistics for the vendor
         summary = get_vendor_summary_statistics(user.id)
+        print('summary is :', summary)
         
         # Get recent pending bookings for the vendor
         recent_bookings = Reservation.objects.filter(
             room__created_by=user.id, reservation_status=Reservation.PENDING
-        ).select_related('user', 'room').order_by('-created_at')
-
-        # Serialize recent bookings
-        booking_serializer = ReservationSerializer(recent_bookings, many=True)
+        ).select_related('user', 'room').order_by('-created_at')[:5]
+        booking_serializer = ReservationSerializer(recent_bookings, many=True, context={'request': request})
 
         # Return the response with recent bookings and summary statistics
         return Response({
@@ -503,8 +604,28 @@ class DashboardView(APIView):
         })
 
 
+class VendorBookingsView(APIView):
+    """
+    API view to provide a list of all bookings for the vendor.
+    """
+    
+    def get(self, request):
+        user = request.user
 
-# from rooms.models import Reservation
+        # Get all bookings for the vendor
+        all_bookings = Reservation.objects.filter(
+            room__created_by=user.id
+        ).select_related('user', 'room').order_by('-created_at')
+
+        # Instantiate the paginator and apply pagination
+        paginator = StandardResultsSetPagination()
+        paginated_bookings = paginator.paginate_queryset(all_bookings, request)
+
+        # Serialize the paginated data
+        booking_serializer = ReservationSerializer(paginated_bookings, many=True, context={'request': request})
+
+        # Return the paginated response
+        return paginator.get_paginated_response(booking_serializer.data)
 
 class UserDetailaView(generics.ListAPIView):
     """
@@ -515,7 +636,10 @@ class UserDetailaView(generics.ListAPIView):
 
     def get_queryset(self):
         vendor = self.request.user
+        print('vendro i s:',vendor)
         vendor_rooms = vendor.created_rooms.all()
+        print('vendro room is :',vendor_rooms)
+
         reservations = Reservation.objects.filter(room__in=vendor_rooms)
         user_ids = reservations.values_list('user', flat=True)
         queryset = User.objects.filter(id__in=user_ids)
@@ -523,3 +647,109 @@ class UserDetailaView(generics.ListAPIView):
 
 
 
+
+from .serializers import RoomRatingSerializer
+from rooms.models import Room
+from rest_framework import permissions
+from django.db.models import Count, Avg
+
+class VendorRoomsListView(generics.ListAPIView):
+    serializer_class = RoomRatingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_vendor:
+            return Room.objects.none()  # Return no rooms if the user is not a vendor
+
+        # Annotate and filter rooms with at least one rating
+        return Room.objects.filter(
+            created_by=user,
+            ratings__isnull=False  # Ensure there is at least one rating
+        ).annotate(
+            average_rating=Avg('ratings__rating'),  # Calculate the average rating
+            total_ratings=Count('ratings')           # Count the number of ratings
+        ).distinct()  # Ensure unique rooms are returned
+    
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Count
+from datetime import datetime
+import calendar
+
+class VendorReservationsByMonthView(APIView):
+    """
+    API view to get reservations by month, status, and vendor.
+    """
+    permission_classes = [IsVendor]
+
+    def get(self, request):
+        vendor_id = request.user.id
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
+        if not month or not year:
+            return Response({'error': 'Month and year are required parameters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            month = int(month)
+            year = int(year)
+        except ValueError:
+            return Response({'error': 'Month and year must be integers.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if month < 1 or month > 12:
+            return Response({'error': 'Month must be between 1 and 12.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Calculate the start and end dates for the requested month
+        start_date = datetime(year, month, 1).date()
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = datetime(year, month, last_day).date()
+
+        # Filter reservations by date range and vendor
+        reservations = Reservation.objects.filter(
+            check_in__range=[start_date, end_date],
+            room__created_by_id=vendor_id
+        )
+        print('sentuing data  i s:',reservations)
+
+        # Annotate reservations based on their status
+        data = {
+            'confirmed': reservations.filter(reservation_status='Confirmed').values('check_in').annotate(total=Count('id')).order_by('check_in'),
+            'upcoming': reservations.filter(reservation_status='Pending').values('check_in').annotate(total=Count('id')).order_by('check_in'),
+            'canceled': reservations.filter(reservation_status='Canceled').values('check_in').annotate(total=Count('id')).order_by('check_in'),
+        }
+        print('data is fornm  sentuing:',data)
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+from rooms.serializers import RoomSerializer
+from django.db.models import Avg, Count
+
+class VendorTopRoomsView(APIView):
+    """
+    API view to get the top rooms for the current vendor based on average ratings.
+    """
+    permission_classes = [IsVendor]
+
+    def get(self, request):
+        # Get the current vendor (assumes that the user is a vendor)
+        vendor = request.user
+        
+        # Query to get the top rooms for the vendor based on average rating,
+        # with secondary sorting by rating_count if averages are equal
+        top_rooms = Room.objects.filter(created_by=vendor) \
+            .annotate(
+                average_rating=Avg('ratings__rating'),
+                rating_count=Count('ratings')
+            ) \
+            .filter(rating_count__gt=0) \
+            .order_by('-average_rating', '-rating_count')[:5]  # Top 5 rooms
+
+        serializer = RoomSerializer(top_rooms, many=True, context={'request': request})
+        
+        return Response(serializer.data, status=200)

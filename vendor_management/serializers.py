@@ -26,10 +26,6 @@ from accounts.constants import(
     EMAIL_ALREADY_EXISTS
 )
 
-email_validator = RegexValidator(
-    regex=r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$',
-    message='Enter a valid email address'
-)
 
 
 class GenerateEmailSerializer(serializers.Serializer):
@@ -38,7 +34,7 @@ class GenerateEmailSerializer(serializers.Serializer):
     """ 
     first_name   = serializers.CharField(max_length=100)
     last_name    = serializers.CharField(max_length=100)
-    email        = serializers.EmailField(validators=[email_validator, validate_unique_email])
+    email        = serializers.EmailField(validators=[ validate_unique_email])
     phone_number = serializers.CharField(max_length=15, validators=[ validate_phone_number])
     password     = serializers.CharField(write_only=True, style={'input_type': 'password'})
     confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
@@ -49,34 +45,34 @@ class GenerateEmailSerializer(serializers.Serializer):
         """
         password = data.get('password')
         confirm_password = data.pop('confirm_password', None)
-
+        
         if password != confirm_password:
             raise serializers.ValidationError(PASSWORDS_DO_NOT_MATCH)
 
         return data
 
-    def create(self, validated_data):
-        """
-        Create user instance using the email as username.
-        """
-        email = validated_data['email']
-        username = email.split('@')[0]  # Extract username from email
-        password = validated_data['password']
-        phone_number = validated_data['phone_number']
-        first_name = validated_data['first_name']
-        last_name = validated_data['last_name']
+    # def create(self, validated_data):
+    #     """
+    #     Create user instance using the email as username.
+    #     """
+    #     email = validated_data['email']
+    #     username = email.split('@')[0]  # Extract username from email
+    #     password = validated_data['password']
+    #     phone_number = validated_data['phone_number']
+    #     first_name = validated_data['first_name']
+    #     last_name = validated_data['last_name']
 
-        # Create the user instance
-        user = User.objects.create_user(
-            username=username, 
-            email=email,
-            password=password,
-            first_name=first_name, 
-            last_name=last_name
+    #     # Create the user instance
+    #     user = User.objects.create_user(
+    #         username=username, 
+    #         email=email,
+    #         password=password,
+    #         first_name=first_name, 
+    #         last_name=last_name
             
-            )
+    #         )
 
-        return user
+    #     return user
 
 class VendorLoginSerializer(serializers.Serializer):
     """
@@ -242,3 +238,52 @@ class ChangeEmailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email']
+
+
+
+
+        
+from rest_framework import serializers
+from accounts.models import Rating,Room
+from accounts.serializers import UserProfileEditSerializer  
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    # Include additional fields such as ratings
+    ratings = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'phone_number', 'image', 'is_active', 'date_joined', 'is_superuser', 'is_vendor', 'ratings')
+
+    def get_ratings(self, obj):
+        # Fetch ratings given by this user
+        ratings = Rating.objects.filter(user=obj)
+        return RatingSerializer(ratings, many=True).data
+
+
+from rest_framework import serializers
+from accounts.models import Room, Rating
+
+class RatingSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Or use UserProfileSerializer if more details are needed
+
+    class Meta:
+        model = Rating
+        fields = ['id', 'rating', 'feedback', 'created_at', 'user']
+from django.db.models import Count, Avg
+
+class RoomRatingSerializer(serializers.ModelSerializer):
+    average_rating = serializers.SerializerMethodField()
+    total_ratings = serializers.SerializerMethodField()
+    ratings = RatingSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Room
+        fields = ['id', 'name', 'price_per_night', 'average_rating', 'total_ratings', 'created_at', 'ratings']
+
+    def get_average_rating(self, obj):
+        return obj.ratings.aggregate(Avg('rating'))['rating__avg'] or 0
+
+    def get_total_ratings(self, obj):
+        return obj.ratings.count()
