@@ -24,8 +24,8 @@ from pathlib import Path#
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1), 
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1), 
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=3),     
     'AUTH_HEADER_TYPES':('Bearer',),
 }
 
@@ -51,16 +51,25 @@ MEDIA_URL = 'images/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'images') 
 
 #  Using psql Data base 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'zoomzzz',
+#         'HOST':'localhost',
+#         'PORT':'5432',
+#         'USER':'postgres',
+#         'PASSWORD':'12345'}
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'zoomzzz',
-        'HOST':'localhost',
-        'PORT':'5432',
-        'USER':'postgres',
-        'PASSWORD':'12345'}
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'zoomzzzdb',
+        'USER': 'myprojectuser',
+        'PASSWORD': 'password',
+        'HOST': 'localhost',
+        'PORT': '',
+    }
 }
-
 AUTHENTICATION_BACKENDS = (
     ('django.contrib.auth.backends.ModelBackend'),
 )
@@ -218,8 +227,8 @@ WSGI_APPLICATION = 'django_rest_auth.wsgi.application'
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
     }
 }
 

@@ -61,7 +61,7 @@ import razorpay
 
 
 class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 7
+    page_size = 10  
     page_size_query_param = 'page_size'
     max_page_size = 100
 
@@ -138,9 +138,8 @@ class VerifyOTPView(APIView):
 
     def post(self, request):
         phone = request.data.get('phone_number')
-        print('Phone number from session during verification:', phone)
         otp_entered = request.data.get('otp')
-        print('OTP entered:', otp_entered)
+       
 
         if not phone:
             return Response({"error_message": "Phone number not found in session."}, status=status.HTTP_400_BAD_REQUEST)
@@ -615,7 +614,9 @@ class WishListAPIView(APIView):
 
         # Fetch data from cache or database
         cached_wishlists = cache.get(cache_key)
+        print('fetched from cache')
         if cached_wishlists is None:
+            print('fetched from db')
             cached_wishlists = list(WishList.objects.select_related(
                 'room',
                 'room__location'
