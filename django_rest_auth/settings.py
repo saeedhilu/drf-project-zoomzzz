@@ -100,7 +100,7 @@ EMAIL_USE_TLS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # settings.py
 
-ALLOWED_HOSTS = ['13.53.84.28','127.0.0.1', 'localhost',' https://7148-2405-201-f00d-3040-d1c-1fd7-1c4d-fd97.ngrok-free.app']
+ALLOWED_HOSTS = ['13.236.110.220','127.0.0.1', 'localhost',' https://7148-2405-201-f00d-3040-d1c-1fd7-1c4d-fd97.ngrok-free.app']
 
 TIME_ZONE = 'Asia/Kolkata'
 AUTH_USER_MODEL = 'accounts.User'
