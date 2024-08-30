@@ -24,8 +24,8 @@ from pathlib import Path#
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1), 
-    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=3),     
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12), 
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=10),     
     'AUTH_HEADER_TYPES':('Bearer',),
 }
 
@@ -63,9 +63,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'images')
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'zoomzzzdb',
-        'USER': 'myprojectuser',
-        'PASSWORD': 'password',
+        'NAME': 'zoomzzzawsdb',
+        'USER': 'adminn',
+        'PASSWORD': '12345',
         'HOST': 'localhost',
         'PORT': '',
     }
@@ -100,7 +100,7 @@ EMAIL_USE_TLS = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # settings.py
 
-ALLOWED_HOSTS = ['13.53.84.28','127.0.0.1', 'localhost',' https://7148-2405-201-f00d-3040-d1c-1fd7-1c4d-fd97.ngrok-free.app ']
+ALLOWED_HOSTS = ['13.53.84.28','127.0.0.1', 'localhost',' https://7148-2405-201-f00d-3040-d1c-1fd7-1c4d-fd97.ngrok-free.app']
 
 TIME_ZONE = 'Asia/Kolkata'
 AUTH_USER_MODEL = 'accounts.User'
@@ -114,7 +114,7 @@ AUTH_USER_MODEL = 'accounts.User'
 APPEND_SLASH = False
 
 CORS_ALLOW_ALL_ORIGINS = True 
-CORS_URL_REGEX = r"^/api/.*"
+# CORS_URL_REGEX = r"^/api/.*"
 
 
 
