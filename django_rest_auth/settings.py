@@ -62,12 +62,12 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'images')
 # }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'zoomzzzawsdb',
         'USER': 'adminn',
         'PASSWORD': '12345',
         'HOST': 'localhost',
-        'PORT': '',
+        'PORT': '5432',
     }
 }
 AUTHENTICATION_BACKENDS = (
