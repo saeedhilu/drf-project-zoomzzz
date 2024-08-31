@@ -58,14 +58,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_full_name(self):
         return f'{self.first_name} {self.last_name}' 
 
-# class Profile(models.Model):
-#     """
-#     Model for storing updated user profile information.
-#     """
-#     image        = models.ImageField(default='default.jpg', upload_to='profile')
-#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    
-
+# 
 
 
 def default_expiry():
